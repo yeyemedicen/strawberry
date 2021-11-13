@@ -1,0 +1,119 @@
+#
+# Units
+#
+
+Archer:  
+  name: Archer
+  path: '/data/characters/Archer/'
+  types: ['01','02']
+  
+  Image:
+    scale_factor: 0.75
+    number_of_sprites: 18
+    RowColumn_tup: [9,2]
+    movement_sprites:
+      right: 9
+      left: 9
+
+  Parameters:
+    full_hp: 60
+    resource_name: 'stamina'
+    full_resource: 15
+    resource_drain: 2
+    mov_range: 150
+    speed: 2
+    attack_types:
+      Ranged:
+        normal:
+          damage: [7,12]
+          range: 180
+          accuracy: 88
+        long:
+          damage: [6,8]
+          range: 350
+          accuracy: 65
+  
+  Weapon:
+    type: 'Arrow'
+
+Villager:  
+  name: Villager
+  path: '/data/characters/Villager/'
+  types: ['01F','01F','02M','02F']
+  gender: ['Male','Female']
+
+  Image:
+    scale_factor: 1.35
+    number_of_sprites: 1
+    RowColumn_tup: [1,1]
+    movement_sprites:
+      right: 1
+      left: 0
+
+  Parameters:
+    full_hp: 45
+    resource_name: 'stamina'
+    full_resource: 15
+    resource_drain: 2
+    mov_range: 80
+    speed: 2
+    attack_types:
+      Melee:
+        punch:
+          damage: [3,6]
+          range: 10
+          accuracy: 100
+
+Knight:  
+  name: Knight
+  path: '/data/characters/Knight/'
+  types: ['01','02']
+
+  Image:
+    scale_factor: 0.8
+    number_of_sprites: 18
+    movement_sprites:
+      right: 9
+      left: 9
+
+  Parameters:
+    full_hp: 80
+    resource_name: 'stamina'
+    full_resource: 15
+    resource_drain: 4
+    mov_range: 80
+    speed: 2
+    attack_types:
+      Melee:
+        damage: [9,14]
+        range: 10
+        accuracy: 90
+
+Priest:
+  name: Priest
+  path: '/data/characters/Priest/'
+  types: ['01','02']
+
+  Image:
+    scale_factor: 0.8
+    number_of_sprites: 18
+    movement_sprites:
+      right: 9
+      left: 9
+
+  Parameters:
+    full_hp: 50
+    resource_name: 'faith'
+    full_resource: 15
+    resource_drain: 5
+    mov_range: 50
+    speed: 2
+    attack_types:
+      Melee:
+        damage: [5,9]
+        range: 10
+        accuracy: 80
+      Pray:
+        heal: [8,15]
+        range: 200
+        accuracy: 60
