@@ -16,6 +16,7 @@ Archer:
       left: 9
 
   Parameters:
+    actions: ['Move','Attack','Eat','Talk']
     full_hp: 60
     resource_name: 'stamina'
     full_resource: 15
@@ -51,6 +52,7 @@ Villager:
       left: 0
 
   Parameters:
+    actions: ['Move','Work','Attack','Eat','Talk']
     full_hp: 45
     resource_name: 'stamina'
     full_resource: 15

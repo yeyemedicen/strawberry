@@ -20,10 +20,12 @@ from pygame.locals import (
     K_RIGHT,
     K_ESCAPE,
     KEYDOWN,
+    KEYUP,
     QUIT,
     K_RETURN,
     K_c,
     K_m,
+    K_n,
     K_r,
     K_i,
     MOUSEBUTTONDOWN,
@@ -252,6 +254,30 @@ def ReadSpriteSheet(path_to_ss, RC_tup , number_images):
 
     return sheet , rect_frames
     
+def ActionLoop(Player, unit, MovingUnit, AttackingUnit,ActionBars, WaitingEnd, pressed_keys):
+
+    
+    if unit.IsMoving:
+        Player, ActionBars, WaitingEnd = MovingLoop(Player, unit, MovingUnit, 
+                                            ActionBars, WaitingEnd, pressed_keys)
+    
+    elif unit.IsAttacking:
+        Player, ActionBars, WaitingEnd = AttackingLoop(Player, unit, 
+                     AttackingUnit, ActionBars, WaitingEnd, pressed_keys)
+
+
+    elif unit.IsEating:
+        pass
+
+    elif unit.IsWorking:
+        pass
+
+    elif unit.IsTalking:
+        pass
+
+
+    return Player, ActionBars, WaitingEnd
+        
 def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
     '''
         Moving loop using the player and the unit
@@ -270,6 +296,7 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
         unit.IsMoving = False
         unit.DisplayActionBar = False
         ActionBars = False
+        unit.action_updown = [0,0]
         pg.mouse.set_cursor(pg.cursors.arrow)
         MovingUnit['on'] = False
         MovingUnit['coords'] = []
@@ -291,6 +318,7 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
             unit.HadMoved += 1
             unit.DisplayActionBar = False
             ActionBars = False
+            unit.action_updown = [0,0]
             pg.mouse.set_cursor(pg.cursors.arrow)
             MovingUnit['on'] = False
             MovingUnit['coords'] = []
@@ -304,6 +332,7 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
                 unit.IsMoving = False
                 Logger.info(['I am tired ... I need some rest! ' , 1], holdtime = 2)
                 ActionBars = False
+                unit.action_updown = [0,0]
                 MovingUnit['on'] = False
                 MovingUnit['coords'] = []
 
@@ -332,6 +361,8 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
         unit.IsAttacking = False
         unit.DisplayActionBar = False
         ActionBars = False
+        unit.action_updown = [0,0]
+        unit.action_updown == [0,0]
         pg.mouse.set_cursor(pg.cursors.arrow)
         AttackingUnit['on'] = False
         AttackingUnit['target'] = []
@@ -342,6 +373,8 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
         unit.IsAttacking = False
         unit.DisplayActionBar = False
         ActionBars = False
+        unit.action_updown = [0,0]
+        unit.action_updown == [0,0]
         pg.mouse.set_cursor(pg.cursors.arrow)
         AttackingUnit['on'] = False
         AttackingUnit['target'] = []
@@ -369,6 +402,7 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
             unit.HadAttacked += 1
             unit.DisplayActionBar = False
             ActionBars = False
+            unit.action_updown = [0,0]
             pg.mouse.set_cursor(pg.cursors.arrow)
             AttackingUnit['on'] = False
             AttackingUnit['target'] = []
@@ -383,6 +417,7 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
                 unit.IsAttacking = False
                 Logger.info(['I am tired ... need some rest! ' , 1], holdtime = 2)
                 ActionBars = False
+                unit.action_updown = [0,0]
                 AttackingUnit['on'] = False
                 AttackingUnit['target'] = []
             elif msg == 'accuracy':
@@ -395,9 +430,10 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
                 unit.IsAttacking = False
                 Logger.info(['The attack failed... ' , 1], holdtime = 2)
                 ActionBars = False
+                unit.action_updown = [0,0]
                 AttackingUnit['on'] = False
                 AttackingUnit['target'] = []
-            
+                    
 
         
     return Player, ActionBars, WaitingEnd
@@ -438,6 +474,7 @@ class Player():
                 d = pg.sprite.Sprite()
                 d.surf = self.diamond_img
                 d.rect = rect
+                d.HasBar = False
                 d.name = 'diamond'
                 self.diamonds.add(d)
             
@@ -471,6 +508,17 @@ class Unit(pg.sprite.Sprite):
 
 
         # Parameters
+        self.action_updown = [0,0]
+        actions_cycle = []
+        for k in range(int((len(self.data['Parameters']['actions']) +1)/2)):
+            if k+1 == len(self.data['Parameters']['actions']):
+                actions_cycle.append([self.data['Parameters']['actions'][2*k] , ''])
+            else:
+                actions_cycle.append([self.data['Parameters']['actions'][2*k] , self.data['Parameters']['actions'][2*k+1]])
+
+
+        self.actions_cycle = cycle(actions_cycle)
+        self.actions_lst = next(self.actions_cycle)
         self.mov_range = self.data['Parameters']['mov_range']        
         self.full_hp = self.data['Parameters']['full_hp']
         self.hp = self.full_hp
@@ -510,14 +558,38 @@ class Unit(pg.sprite.Sprite):
         self.size = self.surf.get_size()
         
         # Info related
+        self.HasBar = True
         self.DisplayActionBar = False
         self.ActionBar_buttoms = {'Move': [] , 'Attack': []}
+        self.ActionBarPage = 0
         self.InHome = False
         self.IsMoving = False
         self.IsAttacking = False
+        self.IsEating = False
+        self.IsWorking = False
+        self.IsTalking = False
         self.HadMoved = 0
         self.HadAttacked = 0
  
+    def assign_action(self, action):
+
+        self.IsMoving = False
+        self.IsAttacking = False
+        self.IsEating = False
+        self.IsTalking = False
+        self.IsWorking = False
+        
+        if action == 'Move':
+            self.IsMoving = True
+        elif action == 'Attack':
+            self.IsAttacking = True
+        elif action == 'Eat':
+            self.IsEating = True
+        elif action == 'Talk':
+            self.IsTalking = True
+        elif action == 'Work':
+            self.IsWorking = True
+
     def Move(self, coords):
 
         distance = ((coords[0] - self.rect.centerx)**2 + (coords[1] - self.rect.centery)**2)**(0.5)
@@ -692,7 +764,7 @@ class Unit(pg.sprite.Sprite):
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
                 Logger.info()
-                for entity in ALL_Objects:
+                for entity in ALL_OBJECTS:
                     SCREEN.blit(entity.surf, entity.rect)
                 for entity in ALL_SPRITES:
                     SCREEN.blit(entity.surf, entity.rect)
@@ -710,7 +782,7 @@ class Unit(pg.sprite.Sprite):
 
     def Died(self):
         
-        sheet , rect_frames = ReadSpriteSheet(main_dir + '/data/characters/Archer01_died_ss.png' , [2,2] , 4)
+        sheet , rect_frames = ReadSpriteSheet(main_dir + '/data/characters/Archer/Archer01_died_ss.png' , [2,2] , 4)
         if self.rect_ind==0:
             rect = pg.Rect(rect_frames[0])
         else:
@@ -727,14 +799,14 @@ class Unit(pg.sprite.Sprite):
         corpse.surf = surf
         corpse.rect = rect
         corpse.name = 'corpse'
-        ALL_Objects.add(corpse)
+        ALL_SPRITES.add(corpse)
 
         self.kill()
 
 class Weapon(pg.sprite.Sprite):
     def __init__(self , name , pos, coords=[]):
         super(Weapon, self).__init__()
-        
+
         if name == 'Arrow':
             self.name = 'Arrow'
             self.speed = 10
@@ -764,6 +836,128 @@ class Weapon(pg.sprite.Sprite):
             size = surf.get_size()
             self.surf = pg.transform.scale(surf, (int(size[0]*self.scale_factor), int(size[1]*self.scale_factor)))
             self.size = surf.get_size()
+        
+        self.HasBar = False
+
+class Bar(pg.sprite.Sprite):
+    def __init__(self, unit, info_mode = False):
+        super(Bar, self).__init__()
+
+        self.RC_tup = [2,3]
+        self.number_images = 6
+        self.path = main_dir + '/data/objects/info/'
+        self.unit_for = unit
+
+        if info_mode:
+            image_name = 'info01_ss.png'
+            self.sheet , self.rect_frames = ReadSpriteSheet(self.path + image_name  , self.RC_tup, self.number_images)
+            ind = -(-self.number_images*unit.resource//unit.full_resource)
+            rect = pg.Rect(self.rect_frames[self.number_images-ind])
+            self.surf = pg.Surface(rect.size,pg.SRCALPHA)
+            self.surf.blit(self.sheet, (0, 0), rect)
+            self.surf.set_colorkey((0,0,0), RLEACCEL)
+        else:
+            if unit.action_updown == [1,0]:
+                image_name = 'info04.png'
+            elif unit.action_updown == [0,1]:
+                image_name = 'info05.png'
+            elif unit.action_updown == [0,0]:
+                image_name = 'info03.png'
+
+            self.surf = pg.image.load(self.path + image_name ).convert_alpha()
+
+
+        self.size0 = self.surf.get_size()
+        self.x_offset = 82
+        self.y_offset = 5
+        self.scale_factor = 0.7
+        self.rect = self.surf.get_rect()
+        self.rect.x = unit.rect.x + self.x_offset
+        self.rect.y = unit.rect.y + self.y_offset
+        self.surf = pg.transform.scale(self.surf,(int(self.size0[0]*self.scale_factor),int(self.size0[1]*self.scale_factor) ))
+        self.size = self.surf.get_size()
+        self.TextGroup = pg.sprite.Group()
+
+        if info_mode:
+            # Hp info
+            hp_text, _ = GAME_FONT.render(str(unit.hp) + '/' + str(unit.full_hp), (0, 0, 0) , size=12)
+            hp_sprite = pg.sprite.Sprite()
+            hp_sprite.surf = hp_text
+            hp_sprite.rect = (unit.rect.x + 130, unit.rect.y+20)
+            self.TextGroup.add(hp_sprite)
+            # Resource Info
+            resource_text, _ = GAME_FONT.render(unit.resource_name, (0, 0, 0) , size=12)
+            resource_name_sprite = pg.sprite.Sprite()
+            resource_name_sprite.surf = resource_text
+            resource_name_sprite.rect = (unit.rect.x + 100, unit.rect.y + 38)
+            self.TextGroup.add(resource_name_sprite)
+            # Name info
+            name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=16)
+            size_unit = unit.surf.get_size()
+            name_sprite = pg.sprite.Sprite()
+            name_sprite.surf = name_text
+            name_sprite.rect = (unit.rect.x - size_unit[0]*0.2,unit.rect.y - size_unit[1]*0.28)
+            self.TextGroup.add(name_sprite)
+        else:
+            up_text, _ = GAME_FONT.render(unit.actions_lst[0], (0, 0, 0) , size=12)
+            down_text, _ = GAME_FONT.render(unit.actions_lst[1], (0, 0, 0) , size=12)
+            Upx = self.rect.x + self.size[0]*0.2
+            Upy = self.rect.y + self.size[1]*(0.44-0.25)
+            Downx = self.rect.x + self.size[0]*0.2
+            Downy = self.rect.y + self.size[1]*(0.44+0.25)
+            Text_up = pg.sprite.Sprite()
+            Text_down = pg.sprite.Sprite()
+            Text_up.surf = up_text ; Text_up.rect = (Upx,Upy)
+            Text_down.surf = down_text; Text_down.rect = (Downx,Downy)
+            self.TextGroup.add(Text_up)
+            self.TextGroup.add(Text_down)
+            
+    def get_buttoms(self):
+
+        Movex = self.rect.x + self.size[0]*0.2
+        Movey = self.rect.y + self.size[1]*(0.44-0.25)
+        Attackx = self.rect.x + self.size[0]*0.2
+        Attacky = self.rect.y + self.size[1]*(0.44+0.25)
+        
+        buttoms = {}
+        buttoms['Move'] = [Movex, Movey, self.size[0],self.size[1]*0.5]
+        buttoms['Attack'] = [Attackx, Attacky, self.size[0],self.size[1]*0.5]
+        
+
+        return buttoms
+    
+    def IsClick(self, mouse_pos, unit):
+        '''
+            if there is a click in the Action Bar buttoms
+        '''
+
+        xoffset = 40
+        yoffset = 8
+        
+        isclick = False
+
+        B_move = unit.ActionBar_buttoms['Move']
+        B_move_rx = (B_move[0] + B_move[2]*0.5 - (B_move[0] - B_move[2]*0.5) -6)*0.5
+        B_move_x0 =  B_move[0]
+        B_move_ry = (B_move[1] + B_move[3]*0.5 - (B_move[1] - B_move[3]*0.5) + 6 )*0.5
+        B_move_y0 =  B_move[1]
+        B_attack_y0 =  unit.ActionBar_buttoms['Attack'][1]
+
+
+        if abs(mouse_pos[0] - (B_move_x0 + xoffset)) < B_move_rx :
+            if abs(mouse_pos[1] - B_move_y0 ) < B_move_ry :
+                unit.assign_action(unit.actions_lst[0])
+                unit.action_updown = [1,0]
+                isclick = True
+                return isclick
+        
+
+        if abs(mouse_pos[0] - (B_move_x0 + xoffset)) < B_move_rx :
+            if abs(mouse_pos[1] - (B_attack_y0 + yoffset)) < B_move_ry :
+                unit.assign_action(unit.actions_lst[1])
+                unit.action_updown = [0,1]
+                isclick = True
+                return isclick
 
 class Object(pg.sprite.Sprite):
     def __init__(self , name , pos):
@@ -790,9 +984,9 @@ class Object(pg.sprite.Sprite):
         elif name in ['House01','House02']:
             self.name = 'house'
             path_to_ss = main_dir + '/data/objects/House/' + name +'_ss.png'
-            self.RC_tup = [4,5]
+            self.RC_tup = [5,6]
             self.SPI = 8
-            self.number_images = 18
+            self.number_images = 26
             self.scale_factor = 2.3
 
         elif name == 'sky':
@@ -815,6 +1009,7 @@ class Object(pg.sprite.Sprite):
         self.size = self.surf.get_size()
 
         # video
+        self.HasBar = True
         self.animation_time = 0
         self.run_animation = False
         self.DisplayActionBar = False
@@ -927,19 +1122,20 @@ LINE_UP = SCREEN_HEIGHT*0.04
 LINE_DOWN = SCREEN_HEIGHT*0.96
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]    
-GAME_FONT = pygame.freetype.Font('/home/yeye/Desktop/strawberry/data/fonts/PressStartRegular-ay8E.ttf', 32 )
+GAME_FONT = pygame.freetype.Font('./data/fonts/PressStartRegular-ay8E.ttf', 32 )
 GAME_FONT.origin = True
 clock = pg.time.Clock()
 SCREEN = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 ALL_SPRITES = pg.sprite.Group()
-ALL_Objects = pg.sprite.Group()
+ALL_OBJECTS = pg.sprite.Group()
+ALL_BOXES = pg.sprite.Group()
+ALL_CHATS = pg.sprite.Group()
 Logger = Log(SCREEN , mode = 'global')
 pg.display.set_caption('strawberry bf')
 Pixel2Mts = 1.7/70
 
-pg.mixer.music.load(main_dir + '/data/music/Death_Bed.ogg')
-pg.mixer.music.play(-1)
-
+#pg.mixer.music.load(main_dir + '/data/music/Death_Bed.ogg')
+#pg.mixer.music.play(-1)
 
 
 def main():
@@ -947,8 +1143,8 @@ def main():
     Player_A = Player('Player A')
     Player_B = Player('Player B')
     Player_inturn_cycle = cycle([Player_A, Player_B])
-    Player_waiting_cycle = cycle([Player_B, Player_A])
     Player_inturn = next(Player_inturn_cycle)
+    #Player_waiting_cycle = cycle([Player_B, Player_A])
     #Player_waiting = next(Player_waiting_cycle)
     Players_list = [Player_A, Player_B]
     ####
@@ -968,23 +1164,23 @@ def main():
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     # Objects
-    ALL_Objects.add(Object('sky',[900,0]))
-    ALL_Objects.add(Object('rock',[900,700]))
-    ALL_Objects.add(Object('rock',[950,720]))
-    ALL_Objects.add(Object('tree',[150,400]))
-    ALL_Objects.add(Object('tree',[80,180]))
-    ALL_Objects.add(Object('tree',[80,300]))
-    ALL_Objects.add(Object('tree',[30,310]))
+    ALL_OBJECTS.add(Object('sky',[900,0]))
+    ALL_OBJECTS.add(Object('rock',[900,700]))
+    ALL_OBJECTS.add(Object('rock',[950,720]))
+    ALL_OBJECTS.add(Object('tree',[150,400]))
+    ALL_OBJECTS.add(Object('tree',[80,180]))
+    ALL_OBJECTS.add(Object('tree',[80,300]))
+    ALL_OBJECTS.add(Object('tree',[30,310]))
     
     # Houses
     Player_A.Home = Object('House01',[60,600])
     Player_B.Home = Object('House02',[1600,150])
 
-    ALL_Objects.add(Player_A.Home)
-    ALL_Objects.add(Player_B.Home)
+    ALL_OBJECTS.add(Player_A.Home)
+    ALL_OBJECTS.add(Player_B.Home)
     
 
-    for sprites in ALL_Objects.sprites():
+    for sprites in ALL_OBJECTS.sprites():
         ALL_SPRITES.add(sprites)
 
     for Player_ in Players_list:
@@ -1004,7 +1200,6 @@ def main():
     while running:
 
         SCREEN.fill(SCREEN_COLOR)
-        #pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
         pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
         
         Logger.info([Player_inturn.name + ' turn', 1])
@@ -1016,17 +1211,29 @@ def main():
             if event.type  == KEYDOWN:
                 if event.key == K_ESCAPE:
                     running = False
+                
+                elif event.key == K_n:
+                    for unit in Player_inturn.UnitsGroup:
+                        if unit.DisplayActionBar and ActionBars:
+                            unit.actions_lst = next(unit.actions_cycle)
+                            #unit.action_updown = [0,0] bug here
+
+            if event.type  == KEYUP:
+                    if event.key == K_i:
+                        ALL_BOXES.empty()
+                        ActionBars = False
+
             elif event.type == QUIT:
                 running = False
 
             elif event.type == MOVETREES:
-                for obj in ALL_Objects.sprites():
+                for obj in ALL_OBJECTS.sprites():
                     if obj.name == 'tree':
                         if not obj.run_animation:
                             obj.run_animation = True
 
             elif event.type == HouseMovement:
-                for obj in ALL_Objects.sprites():
+                for obj in ALL_OBJECTS.sprites():
                     if obj.name == 'house':
                         if not obj.run_animation:
                             Coin = random.randint(0,1)
@@ -1034,7 +1241,7 @@ def main():
                                 obj.run_animation = True
 
             elif event.type == CleanBattleField:
-                for entity in ALL_Objects:
+                for entity in ALL_OBJECTS:
                     if entity.name == 'Arrow':
                         entity.kill()
 
@@ -1049,41 +1256,40 @@ def main():
                                 if unit.rect.collidepoint(pg.mouse.get_pos()):
                                     AttackingUnit['unit'] = unit
                     else:
-                        if ActionBars:
-                            for unit in Player_inturn.UnitsGroup:
+                        for unit in Player_inturn.UnitsGroup:
+                            for abar in ALL_BOXES.sprites():
                                 if unit.DisplayActionBar:
-                                    #ActionBar_Isclick will modify unit.IsAttack and unit.IsMoving
-                                    isclick = ActionBar_IsClick(pg.mouse.get_pos(), unit)
+                                    isclick = abar.IsClick(pg.mouse.get_pos(), unit)
                                     if not isclick:
+                                        ALL_BOXES.empty()
+                                        unit.action_updown == [0,0]
                                         unit.DisplayActionBar = False
                                         ActionBars = False
-                        else:
-                            for unit in Player_inturn.UnitsGroup:
+                            if not ALL_BOXES.has():
                                 if unit.rect.collidepoint(pg.mouse.get_pos()):
                                     unit.DisplayActionBar = True
                                     ActionBars = True
 
-
         pressed_keys = pg.key.get_pressed()
         
-        # Displaying Actions Bars of Info Bars
+        # Displaying Actions Bars or Info Bars
         if ActionBars:
             for unit in Player_inturn.UnitsGroup:
                 if unit.DisplayActionBar:
-                    DisplayInfo(unit, SCREEN, 1 )
+                    Action_bar = Bar(unit) 
+                    ALL_BOXES.add(Action_bar)   
+                    unit.ActionBar_buttoms = Action_bar.get_buttoms()
         else:
-            # Displaying Info Bars of all units when mouseover + i
-            #for Player_ in Players_list:
-            #    for unit in Player_.UnitsGroup:
-            #        unit.DisplayActionBar = False
             for entity in ALL_SPRITES.sprites():
-                if entity.rect.collidepoint(pg.mouse.get_pos()):
-                    if pressed_keys[K_i]:
-                        DisplayInfo(entity, SCREEN, 6 , info_mode= True)
+                if entity.HasBar:
+                    if entity.rect.collidepoint(pg.mouse.get_pos()):
+                        if pressed_keys[K_i]:
+                            ActionBars = True
+                            ALL_BOXES.add(Bar(entity, info_mode=True))
     
 
 
-        for obj in ALL_Objects.sprites():
+        for obj in ALL_OBJECTS.sprites():
             if obj.run_animation:
                 if obj.name == 'tree':
                     obj.animate(backwards=True)
@@ -1092,12 +1298,12 @@ def main():
 
     
         for unit in Player_inturn.UnitsGroup:
-            if unit.IsMoving:
-                Player_inturn, ActionBars, WaitingEnd = MovingLoop(Player_inturn, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys)
-            
-            elif unit.IsAttacking:
-                Player_inturn, ActionBars, WaitingEnd = AttackingLoop(Player_inturn, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_keys)
 
+            Player_inturn, ActionBars, WaitingEnd = ActionLoop(Player_inturn, unit, 
+                         MovingUnit, AttackingUnit, ActionBars, WaitingEnd, pressed_keys)
+
+            if not ActionBars:
+                ALL_BOXES.empty()
 
 
         # Checking for the winner
@@ -1147,13 +1353,18 @@ def main():
             clock.tick(4)
 
 
-        for entity in ALL_Objects:
+        for entity in ALL_OBJECTS:
             SCREEN.blit(entity.surf, entity.rect)
 
         for entity in ALL_SPRITES:
             SCREEN.blit(entity.surf, entity.rect)
 
-        
+        for entity in ALL_BOXES:
+            SCREEN.blit(entity.surf, entity.rect)
+            for text_ in entity.TextGroup.sprites():
+                SCREEN.blit(text_.surf, text_.rect)
+
+
         Logger.Print()
         pg.display.flip()
         clock.tick(60)
