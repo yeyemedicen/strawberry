@@ -273,7 +273,7 @@ def ActionLoop(Player, unit, MovingUnit, AttackingUnit,ActionBars, WaitingEnd, p
         pass
 
     elif unit.IsTalking:
-        pass
+        ActionBars = TalkingLoop(unit, ActionBars)
 
 
     return Player, ActionBars, WaitingEnd
@@ -325,6 +325,7 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
         else:
             if msg == 'range':
                 Logger.info(['Movement longer than Unit\'s range ' , 1], holdtime = 2)
+                #unit.Talk('too far!')
                 MovingUnit['coords'] = []
                 
             elif msg == 'resource':
@@ -438,6 +439,19 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
         
     return Player, ActionBars, WaitingEnd
 
+def TalkingLoop(unit, ActionBars):
+    '''
+        Talking loop
+    '''
+
+    unit.Talk('hello')
+    unit.IsTalking = False
+    unit.DisplayActionBar = False
+    ActionBars = False
+    unit.action_updown = [0,0]
+        
+    return ActionBars
+
 class Player():
     def __init__(self , name ):
 
@@ -509,15 +523,14 @@ class Unit(pg.sprite.Sprite):
 
         # Parameters
         self.action_updown = [0,0]
-        actions_cycle = []
+        self.actions_cycle_base = []
         for k in range(int((len(self.data['Parameters']['actions']) +1)/2)):
-            if k+1 == len(self.data['Parameters']['actions']):
-                actions_cycle.append([self.data['Parameters']['actions'][2*k] , ''])
+            if 2*k+1 == len(self.data['Parameters']['actions']):
+                self.actions_cycle_base.append([self.data['Parameters']['actions'][2*k] , ''])
             else:
-                actions_cycle.append([self.data['Parameters']['actions'][2*k] , self.data['Parameters']['actions'][2*k+1]])
+                self.actions_cycle_base.append([self.data['Parameters']['actions'][2*k] , self.data['Parameters']['actions'][2*k+1]])
 
-
-        self.actions_cycle = cycle(actions_cycle)
+        self.actions_cycle = cycle(self.actions_cycle_base)
         self.actions_lst = next(self.actions_cycle)
         self.mov_range = self.data['Parameters']['mov_range']        
         self.full_hp = self.data['Parameters']['full_hp']
@@ -558,6 +571,7 @@ class Unit(pg.sprite.Sprite):
         self.size = self.surf.get_size()
         
         # Info related
+        self.phrase = []
         self.HasBar = True
         self.DisplayActionBar = False
         self.ActionBar_buttoms = {'Move': [] , 'Attack': []}
@@ -780,6 +794,10 @@ class Unit(pg.sprite.Sprite):
             else:
                 return True, [damage_value,critical]
 
+    def Talk(self, msg):
+        self.phrase = msg
+        ALL_CHATS.add(Bar(self,mode='chat'))
+
     def Died(self):
         
         sheet , rect_frames = ReadSpriteSheet(main_dir + '/data/characters/Archer/Archer01_died_ss.png' , [2,2] , 4)
@@ -840,23 +858,35 @@ class Weapon(pg.sprite.Sprite):
         self.HasBar = False
 
 class Bar(pg.sprite.Sprite):
-    def __init__(self, unit, info_mode = False):
+    def __init__(self, unit, mode = None):
         super(Bar, self).__init__()
 
-        self.RC_tup = [2,3]
-        self.number_images = 6
         self.path = main_dir + '/data/objects/info/'
         self.unit_for = unit
 
-        if info_mode:
+        if not mode:
+            self.mode = 'bar'
+        else:
+            self.mode = mode
+
+        if self.mode == 'info':
+            self.RC_tup = [2,3]
+            self.scale_factor = 0.7
+            self.x_offset = 60
+            self.y_offset = 2
+            self.number_images = 6
             image_name = 'info01_ss.png'
             self.sheet , self.rect_frames = ReadSpriteSheet(self.path + image_name  , self.RC_tup, self.number_images)
             ind = -(-self.number_images*unit.resource//unit.full_resource)
             rect = pg.Rect(self.rect_frames[self.number_images-ind])
             self.surf = pg.Surface(rect.size,pg.SRCALPHA)
             self.surf.blit(self.sheet, (0, 0), rect)
-            self.surf.set_colorkey((0,0,0), RLEACCEL)
-        else:
+            #self.surf.set_colorkey((0,0,0), RLEACCEL)
+
+        elif self.mode == 'bar':
+            self.scale_factor = 0.7
+            self.x_offset = 60
+            self.y_offset = 2
             if unit.action_updown == [1,0]:
                 image_name = 'info04.png'
             elif unit.action_updown == [0,1]:
@@ -866,11 +896,28 @@ class Bar(pg.sprite.Sprite):
 
             self.surf = pg.image.load(self.path + image_name ).convert_alpha()
 
+        elif self.mode == 'chat':
+            image_name = 'chat.png'
+            self.duration = 800        # duration in milisecond
+            self.initial_t = clock.get_time()
+            self.current_t = self.initial_t
+            self.RC_tup = [1,2]
+            self.scale_factor = 1.5
+            self.number_images = 2
+            self.x_offset = 30
+            self.y_offset = -20
+            self.sheet , self.rect_frames = ReadSpriteSheet(self.path + image_name  , self.RC_tup, self.number_images)
+            if unit.rect_ind == 0:
+                rect = pg.Rect(self.rect_frames[0])
+            else:
+                rect = pg.Rect(self.rect_frames[1])
+            
+            self.surf = pg.Surface(rect.size,pg.SRCALPHA)
+            self.surf.blit(self.sheet, (0, 0), rect)
+            self.surf.set_colorkey((0,0,0), RLEACCEL)
+            
 
         self.size0 = self.surf.get_size()
-        self.x_offset = 82
-        self.y_offset = 5
-        self.scale_factor = 0.7
         self.rect = self.surf.get_rect()
         self.rect.x = unit.rect.x + self.x_offset
         self.rect.y = unit.rect.y + self.y_offset
@@ -878,27 +925,27 @@ class Bar(pg.sprite.Sprite):
         self.size = self.surf.get_size()
         self.TextGroup = pg.sprite.Group()
 
-        if info_mode:
+        if self.mode == 'info':
             # Hp info
             hp_text, _ = GAME_FONT.render(str(unit.hp) + '/' + str(unit.full_hp), (0, 0, 0) , size=12)
             hp_sprite = pg.sprite.Sprite()
             hp_sprite.surf = hp_text
-            hp_sprite.rect = (unit.rect.x + 130, unit.rect.y+20)
+            hp_sprite.rect = (unit.rect.x + 110, unit.rect.y+17)
             self.TextGroup.add(hp_sprite)
             # Resource Info
             resource_text, _ = GAME_FONT.render(unit.resource_name, (0, 0, 0) , size=12)
             resource_name_sprite = pg.sprite.Sprite()
             resource_name_sprite.surf = resource_text
-            resource_name_sprite.rect = (unit.rect.x + 100, unit.rect.y + 38)
+            resource_name_sprite.rect = (unit.rect.x + 79, unit.rect.y + 36)
             self.TextGroup.add(resource_name_sprite)
             # Name info
             name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=16)
-            size_unit = unit.surf.get_size()
+            size_unit = unit.size
             name_sprite = pg.sprite.Sprite()
             name_sprite.surf = name_text
-            name_sprite.rect = (unit.rect.x - size_unit[0]*0.2,unit.rect.y - size_unit[1]*0.28)
+            name_sprite.rect = (unit.rect.x - size_unit[0]*0.35,unit.rect.y - size_unit[1]*0.28)
             self.TextGroup.add(name_sprite)
-        else:
+        elif self.mode == 'bar':
             up_text, _ = GAME_FONT.render(unit.actions_lst[0], (0, 0, 0) , size=12)
             down_text, _ = GAME_FONT.render(unit.actions_lst[1], (0, 0, 0) , size=12)
             Upx = self.rect.x + self.size[0]*0.2
@@ -911,6 +958,16 @@ class Bar(pg.sprite.Sprite):
             Text_down.surf = down_text; Text_down.rect = (Downx,Downy)
             self.TextGroup.add(Text_up)
             self.TextGroup.add(Text_down)
+
+        elif self.mode == 'chat':
+            #surface.get_width()
+            #surface.get_height()
+            text, _ = GAME_FONT.render(unit.phrase, (0, 0, 0) , size=12)
+            size_unit = unit.size
+            chat_sprite = pg.sprite.Sprite()
+            chat_sprite.surf = text
+            chat_sprite.rect = (self.rect.centerx-20, self.rect.centery-5)
+            self.TextGroup.add(chat_sprite)
             
     def get_buttoms(self):
 
@@ -1160,7 +1217,7 @@ def main():
 
     # Add units to players
     Player_A.UnitsGroup.add(Unit('Archer',[300,500], Player_A.name))
-    #Player_A.UnitsGroup.add(Unit('Villager',[340,480], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Villager',[340,480], Player_A.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     # Objects
@@ -1216,7 +1273,11 @@ def main():
                     for unit in Player_inturn.UnitsGroup:
                         if unit.DisplayActionBar and ActionBars:
                             unit.actions_lst = next(unit.actions_cycle)
-                            #unit.action_updown = [0,0] bug here
+                            unit.action_updown = [0,0]
+                            unit.assign_action('none')
+                            MovingUnit['on'] = False
+                            AttackingUnit['on'] = False
+                            pg.mouse.set_cursor(pg.cursors.arrow)
 
             if event.type  == KEYUP:
                     if event.key == K_i:
@@ -1262,7 +1323,9 @@ def main():
                                     isclick = abar.IsClick(pg.mouse.get_pos(), unit)
                                     if not isclick:
                                         ALL_BOXES.empty()
-                                        unit.action_updown == [0,0]
+                                        unit.actions_cycle = cycle(unit.actions_cycle_base)
+                                        unit.actions_lst = next(unit.actions_cycle)
+                                        unit.action_updown = [0,0]
                                         unit.DisplayActionBar = False
                                         ActionBars = False
                             if not ALL_BOXES.has():
@@ -1285,7 +1348,7 @@ def main():
                     if entity.rect.collidepoint(pg.mouse.get_pos()):
                         if pressed_keys[K_i]:
                             ActionBars = True
-                            ALL_BOXES.add(Bar(entity, info_mode=True))
+                            ALL_BOXES.add(Bar(entity, mode='info'))
     
 
 
@@ -1364,9 +1427,20 @@ def main():
             for text_ in entity.TextGroup.sprites():
                 SCREEN.blit(text_.surf, text_.rect)
 
+        for entity in ALL_CHATS:
+            entity.current_t += clock.get_time()
+            if entity.current_t - entity.initial_t < entity.duration:
+                SCREEN.blit(entity.surf, entity.rect)
+                for text_ in entity.TextGroup.sprites():
+                    SCREEN.blit(text_.surf, text_.rect)
+            else:
+                entity.kill()
+
 
         Logger.Print()
         pg.display.flip()
+
+
         clock.tick(60)
 
 

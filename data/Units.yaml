@@ -40,11 +40,11 @@ Archer:
 Villager:  
   name: Villager
   path: '/data/characters/Villager/'
-  types: ['01F','01F','02M','02F']
+  types: ['01M','01F','02M','02F']
   gender: ['Male','Female']
 
   Image:
-    scale_factor: 1.35
+    scale_factor: 1.4
     number_of_sprites: 1
     RowColumn_tup: [1,1]
     movement_sprites:
