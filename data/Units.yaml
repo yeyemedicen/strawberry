@@ -8,7 +8,7 @@ Archer:
   types: ['01','02']
   
   Image:
-    scale_factor: 0.75
+    scale_factor: 0.9
     number_of_sprites: 18
     RowColumn_tup: [9,2]
     movement_sprites:
@@ -25,11 +25,11 @@ Archer:
     speed: 2
     attack_types:
       Ranged:
-        normal:
+        Normal-shot:
           damage: [7,12]
           range: 180
           accuracy: 88
-        long:
+        Long-shot:
           damage: [6,8]
           range: 350
           accuracy: 65
@@ -40,16 +40,16 @@ Archer:
 Villager:  
   name: Villager
   path: '/data/characters/Villager/'
-  types: ['01M','01F','02M','02F']
+  types: ['M','M','02M','02F']
   gender: ['Male','Female']
 
   Image:
-    scale_factor: 1.4
-    number_of_sprites: 1
-    RowColumn_tup: [1,1]
+    scale_factor: [0.3,0.3]  #1.3 both
+    number_of_sprites: 18
+    RowColumn_tup: [5,4]
     movement_sprites:
-      right: 1
-      left: 0
+      right: 9
+      left: 9
 
   Parameters:
     actions: ['Move','Work','Attack','Eat','Talk']
@@ -57,11 +57,11 @@ Villager:
     resource_name: 'stamina'
     full_resource: 15
     resource_drain: 2
-    mov_range: 80
+    mov_range: 100
     speed: 2
     attack_types:
       Melee:
-        punch:
+        Punch:
           damage: [3,6]
           range: 10
           accuracy: 100

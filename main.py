@@ -19,6 +19,7 @@ from pygame.locals import (
     K_LEFT,
     K_RIGHT,
     K_ESCAPE,
+    K_TAB,
     KEYDOWN,
     KEYUP,
     QUIT,
@@ -73,6 +74,13 @@ def CreateTrajectory(coordsA,coordsB, get_gradient = False):
         return ytraj, xtraj, dtraj
     else:
         return ytraj, xtraj
+
+def ChangeImage(new_image,size):
+
+    surf = pg.image.load(new_image).convert_alpha()
+    surf = pg.transform.scale(surf,(int(size[0]),int(size[1]) ))
+
+    return surf
 
 def ChangeSprite(rect_frames, rect_size0 , sheet , pos, final_size, index):
     rect = pg.Rect(rect_frames[index])
@@ -515,6 +523,23 @@ class Unit(pg.sprite.Sprite):
         
         # Image
         self.scale_factor = self.data['Image']['scale_factor']
+
+        if 'gender' in self.data:
+            coin = random.randint(0,1)
+            if coin > 0:
+                if 'A' in player_name:
+                    self.type = self.data['types'][0]
+                else:
+                    self.type = self.data['types'][2]
+                self.scale_factor = self.scale_factor[0]
+            else:
+                if 'A' in player_name:
+                    self.type = self.data['types'][1]
+                else:
+                    self.type = self.data['types'][3]
+                self.scale_factor = self.scale_factor[1]
+        
+        
         self.number_of_sprites = self.data['Image']['number_of_sprites']
         self.movement_sprites = [self.data['Image']['movement_sprites']['right'],
                                      self.data['Image']['movement_sprites']['left']]
@@ -574,6 +599,7 @@ class Unit(pg.sprite.Sprite):
         self.phrase = []
         self.HasBar = True
         self.DisplayActionBar = False
+        self.ActionBar = None
         self.ActionBar_buttoms = {'Move': [] , 'Attack': []}
         self.ActionBarPage = 0
         self.InHome = False
@@ -642,6 +668,7 @@ class Unit(pg.sprite.Sprite):
             
 
             sprite_ind = next(sprite_chain_c)
+            time_ticking = 15
 
             for k in range(int(abs(displacement_x)/self.speed)):
                 self.rect.move_ip(self.speed*displacement_x_sign,0)
@@ -660,7 +687,7 @@ class Unit(pg.sprite.Sprite):
 
                 pg.display.flip()
                 sprite_ind = next(sprite_chain_c)
-                clock.tick(20)
+                clock.tick(time_ticking)
 
             
 
@@ -681,7 +708,7 @@ class Unit(pg.sprite.Sprite):
                 
                 pg.display.flip()
                 sprite_ind = next(sprite_chain_c)
-                clock.tick(20)       
+                clock.tick(time_ticking)       
             
 
             self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
@@ -887,13 +914,7 @@ class Bar(pg.sprite.Sprite):
             self.scale_factor = 0.7
             self.x_offset = 60
             self.y_offset = 2
-            if unit.action_updown == [1,0]:
-                image_name = 'info04.png'
-            elif unit.action_updown == [0,1]:
-                image_name = 'info05.png'
-            elif unit.action_updown == [0,0]:
-                image_name = 'info03.png'
-
+            image_name = 'info03.png'
             self.surf = pg.image.load(self.path + image_name ).convert_alpha()
 
         elif self.mode == 'chat':
@@ -948,14 +969,13 @@ class Bar(pg.sprite.Sprite):
         elif self.mode == 'bar':
             up_text, _ = GAME_FONT.render(unit.actions_lst[0], (0, 0, 0) , size=12)
             down_text, _ = GAME_FONT.render(unit.actions_lst[1], (0, 0, 0) , size=12)
-            Upx = self.rect.x + self.size[0]*0.2
-            Upy = self.rect.y + self.size[1]*(0.44-0.25)
-            Downx = self.rect.x + self.size[0]*0.2
-            Downy = self.rect.y + self.size[1]*(0.44+0.25)
+            self.text_x = self.rect.x + self.size[0]*0.2
+            self.text_upy = self.rect.y + self.size[1]*(0.44-0.25)
+            self.text_dwny = self.rect.y + self.size[1]*(0.44+0.25)
             Text_up = pg.sprite.Sprite()
             Text_down = pg.sprite.Sprite()
-            Text_up.surf = up_text ; Text_up.rect = (Upx,Upy)
-            Text_down.surf = down_text; Text_down.rect = (Downx,Downy)
+            Text_up.surf = up_text ; Text_up.rect = (self.text_x,self.text_upy)
+            Text_down.surf = down_text; Text_down.rect = (self.text_x,self.text_dwny)
             self.TextGroup.add(Text_up)
             self.TextGroup.add(Text_down)
 
@@ -983,7 +1003,7 @@ class Bar(pg.sprite.Sprite):
 
         return buttoms
     
-    def IsClick(self, mouse_pos, unit):
+    def is_click(self, mouse_pos, unit):
         '''
             if there is a click in the Action Bar buttoms
         '''
@@ -1006,6 +1026,8 @@ class Bar(pg.sprite.Sprite):
                 unit.assign_action(unit.actions_lst[0])
                 unit.action_updown = [1,0]
                 isclick = True
+                image_name = 'info04.png'
+                self.surf  = ChangeImage(self.path + image_name, self.size)
                 return isclick
         
 
@@ -1014,7 +1036,24 @@ class Bar(pg.sprite.Sprite):
                 unit.assign_action(unit.actions_lst[1])
                 unit.action_updown = [0,1]
                 isclick = True
+                image_name = 'info05.png'
+                self.surf  = ChangeImage(self.path + image_name, self.size)
                 return isclick
+        
+    def change_action_text(self, unit):
+        if self.mode != 'bar':
+            pass
+        else:
+            self.TextGroup.empty()
+
+            up_text, _ = GAME_FONT.render(unit.actions_lst[0], (0, 0, 0) , size=12)
+            down_text, _ = GAME_FONT.render(unit.actions_lst[1], (0, 0, 0) , size=12)
+            Text_up = pg.sprite.Sprite()
+            Text_down = pg.sprite.Sprite()
+            Text_up.surf = up_text ; Text_up.rect = (self.text_x,self.text_upy)
+            Text_down.surf = down_text; Text_down.rect = (self.text_x,self.text_dwny)
+            self.TextGroup.add(Text_up)
+            self.TextGroup.add(Text_down)
 
 class Object(pg.sprite.Sprite):
     def __init__(self , name , pos):
@@ -1217,7 +1256,7 @@ def main():
 
     # Add units to players
     Player_A.UnitsGroup.add(Unit('Archer',[300,500], Player_A.name))
-    Player_A.UnitsGroup.add(Unit('Villager',[340,480], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     # Objects
@@ -1273,12 +1312,29 @@ def main():
                     for unit in Player_inturn.UnitsGroup:
                         if unit.DisplayActionBar and ActionBars:
                             unit.actions_lst = next(unit.actions_cycle)
+                            unit.ActionBar.change_action_text(unit)
                             unit.action_updown = [0,0]
                             unit.assign_action('none')
                             MovingUnit['on'] = False
                             AttackingUnit['on'] = False
                             pg.mouse.set_cursor(pg.cursors.arrow)
 
+                elif event.key == K_TAB:
+                    num_sprites = len(Player_inturn.UnitsGroup.sprites())
+                    if num_sprites>1:
+                        SPRITES = Player_inturn.UnitsGroup.sprites()
+                        for k in range(0,num_sprites-1,2):
+                            if ALL_BOXES.has(SPRITES[k].ActionBar):
+                                k_old = k
+                                k_new = k+1
+                            elif ALL_BOXES.has(SPRITES[k+1].ActionBar):
+                                k_old = k+1
+                                k_new = k
+                            
+                        SPRITES[k_old].DisplayActionBar = False
+                        SPRITES[k_old].ActionBar.kill()
+                        SPRITES[k_new].DisplayActionBar = True                                
+                
             if event.type  == KEYUP:
                     if event.key == K_i:
                         ALL_BOXES.empty()
@@ -1320,7 +1376,7 @@ def main():
                         for unit in Player_inturn.UnitsGroup:
                             for abar in ALL_BOXES.sprites():
                                 if unit.DisplayActionBar:
-                                    isclick = abar.IsClick(pg.mouse.get_pos(), unit)
+                                    isclick = abar.is_click(pg.mouse.get_pos(), unit)
                                     if not isclick:
                                         ALL_BOXES.empty()
                                         unit.actions_cycle = cycle(unit.actions_cycle_base)
@@ -1339,9 +1395,11 @@ def main():
         if ActionBars:
             for unit in Player_inturn.UnitsGroup:
                 if unit.DisplayActionBar:
-                    Action_bar = Bar(unit) 
-                    ALL_BOXES.add(Action_bar)   
-                    unit.ActionBar_buttoms = Action_bar.get_buttoms()
+                    if len(ALL_BOXES.sprites()) == 0:
+                        Action_bar = Bar(unit)
+                        ALL_BOXES.add(Action_bar)   
+                        unit.ActionBar_buttoms = Action_bar.get_buttoms()
+                        unit.ActionBar = Action_bar
         else:
             for entity in ALL_SPRITES.sprites():
                 if entity.HasBar:
