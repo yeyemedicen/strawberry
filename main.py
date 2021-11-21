@@ -33,6 +33,16 @@ from pygame.locals import (
     MOUSEBUTTONUP,
 )
 
+def General_Blit():
+    for entity in ALL_OBJECTS:
+        SCREEN.blit(entity.surf, entity.rect)
+        if 'FruitGroup' in vars(entity):
+            for fruit_ in entity.FruitGroup:
+                SCREEN.blit(fruit_.surf, fruit_.rect)
+
+    for entity in ALL_SPRITES:
+        SCREEN.blit(entity.surf, entity.rect)
+
 def CreateTrajectory(coordsA,coordsB, get_gradient = False):
     ''' 
         Arrow trajectory from A to B
@@ -86,9 +96,8 @@ def ChangeSprite(rect_frames, rect_size0 , sheet , pos, final_size, index):
     rect = pg.Rect(rect_frames[index])
     surf = pg.Surface(rect_size0 ,pg.SRCALPHA)
     surf.blit(sheet, (0, 0), rect)
-    
-    rect = surf.get_rect(center=(pos[0],pos[1]))
     surf = pg.transform.scale(surf, (final_size[0], final_size[1]))
+    rect = surf.get_rect(center=(pos[0],pos[1]))
 
     return surf, rect
 
@@ -139,12 +148,16 @@ def DisplayResources(Players_list):
             SCREEN.blit(text, (SCREEN_WIDTH*0.76,SCREEN_HEIGHT*0.01))
 
 def DisplayDamage(coords,damage):
-    yoffset = -50
+    yoffset = -60
     xoffset = -10
-    if damage[1] == 'critical':
-        damage_text, _ = GAME_FONT.render(str(damage[0]), (255,102,102) , size=14)
+
+    if damage[0]>=0:
+        if damage[1] == 'critical':
+            damage_text, _ = GAME_FONT.render(str(damage[0]), (255,102,102) , size=14)
+        else:
+            damage_text, _ = GAME_FONT.render(str(damage[0]), (204, 204, 0) , size=12)
     else:
-        damage_text, _ = GAME_FONT.render(str(damage[0]), (204, 204, 0) , size=12)
+        damage_text, _ = GAME_FONT.render(str(-damage[0]), (102, 255, 102) , size=12)
 
     SCREEN.blit(damage_text, (coords[0]+xoffset,coords[1]+yoffset))
     pg.display.flip()
@@ -275,7 +288,7 @@ def ActionLoop(Player, unit, MovingUnit, AttackingUnit,ActionBars, WaitingEnd, p
 
 
     elif unit.IsEating:
-        pass
+        Player, ActionBars, WaitingEnd = EatingLoop(Player, unit, ActionBars, WaitingEnd)
 
     elif unit.IsWorking:
         pass
@@ -346,6 +359,38 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
                 MovingUnit['coords'] = []
 
         
+    return Player, ActionBars, WaitingEnd
+
+def EatingLoop(Player, unit, ActionBars, WaitingEnd):
+    '''
+        Moving loop using the player and the unit
+    '''
+
+    Logger.info([Player.name + ' is eating...', 1 ])
+
+    # the unit will try to eat
+    IsFeed , msg = unit.Eat()
+    
+    if IsFeed:
+        unit.IsEating = False
+        Player.NumberOfActions -= 1
+        Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
+        Logger.info([Player.name + ' had eaten' , 1], holdtime = 1)
+        if Player.NumberOfActions == 0:
+            WaitingEnd = True
+        
+        unit.DisplayActionBar = False
+        ActionBars = False
+        unit.action_updown = [0,0]
+    else:
+        if msg == 'no_food':
+            Logger.info(['No food nearby!' , 1], holdtime = 1)
+            ActionBars = False
+            unit.IsEating = False
+            unit.DisplayActionBar = False
+            unit.reset_bar()
+            unit.action_updown = [0,0]
+            
     return Player, ActionBars, WaitingEnd
 
 def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_keys):
@@ -586,21 +631,21 @@ class Unit(pg.sprite.Sprite):
 
         # Sprite
         self.rect_ind = 0
-        self.rect = pg.Rect(self.rect_frames[self.rect_ind])
-        self.rect_size0 = self.rect.size
-        self.surf = pg.Surface(self.rect_size0, pg.SRCALPHA)
-        self.surf.blit(self.sheet, (0, 0), self.rect)
+        rect = pg.Rect(self.rect_frames[self.rect_ind])
+        self.rect_size0 = rect.size
+        surf = pg.Surface(self.rect_size0, pg.SRCALPHA)
+        surf.blit(self.sheet, (0, 0), rect)
 
+        self.surf = pg.transform.scale(surf, (int(self.rect_size0[0]*self.scale_factor), int(self.rect_size0[1]*self.scale_factor)))
         self.rect = self.surf.get_rect(center=(self.pos[0],self.pos[1]))
-        self.surf = pg.transform.scale(self.surf, (int(self.rect_size0[0]*self.scale_factor), int(self.rect_size0[1]*self.scale_factor)))
         self.size = self.surf.get_size()
-        
+
         # Info related
         self.phrase = []
         self.HasBar = True
         self.DisplayActionBar = False
         self.ActionBar = None
-        self.ActionBar_buttoms = {'Move': [] , 'Attack': []}
+        self.ActionBar_buttoms = {'Up': [] , 'Down': []}
         self.ActionBarPage = 0
         self.InHome = False
         self.IsMoving = False
@@ -629,6 +674,10 @@ class Unit(pg.sprite.Sprite):
             self.IsTalking = True
         elif action == 'Work':
             self.IsWorking = True
+
+    def reset_bar(self):
+        self.actions_cycle = cycle(self.actions_cycle_base)
+        self.actions_lst = next(self.actions_cycle)
 
     def Move(self, coords):
 
@@ -682,8 +731,8 @@ class Unit(pg.sprite.Sprite):
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
                 Logger.info()
-                for entity in ALL_SPRITES:
-                    SCREEN.blit(entity.surf, entity.rect)
+
+                General_Blit()
 
                 pg.display.flip()
                 sprite_ind = next(sprite_chain_c)
@@ -703,9 +752,7 @@ class Unit(pg.sprite.Sprite):
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
                 Logger.info()
-                for entity in ALL_SPRITES:
-                    SCREEN.blit(entity.surf, entity.rect)
-                
+                General_Blit()
                 pg.display.flip()
                 sprite_ind = next(sprite_chain_c)
                 clock.tick(time_ticking)       
@@ -805,11 +852,8 @@ class Unit(pg.sprite.Sprite):
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
                 Logger.info()
-                for entity in ALL_OBJECTS:
-                    SCREEN.blit(entity.surf, entity.rect)
-                for entity in ALL_SPRITES:
-                    SCREEN.blit(entity.surf, entity.rect)
-                
+
+                General_Blit()                
              
                 pg.display.flip()
                 clock.tick(Dt)
@@ -820,6 +864,47 @@ class Unit(pg.sprite.Sprite):
                 return False, 'accuracy'
             else:
                 return True, [damage_value,critical]
+
+    def Eat(self):
+
+        circle = pg.sprite.Sprite()
+        #circle_draw = pg.draw.circle(SCREEN,color=(255,102,102),center=(self.rect.centerx,self.rect.centery),
+        #             radius=self.mov_range,width=2)
+        
+        circle.rect = self.rect
+        circle.radius = self.mov_range
+
+        # Looking for food in the mov range
+        # Fruits
+        Fruits_nearby = []
+        mean_hp_gains = []
+        for object_ in ALL_OBJECTS.sprites():
+            if 'FruitGroup' in vars(object_):
+                for fruit_ in object_.FruitGroup:
+                    #S  = pg.sprite.spritecollide(circle, object_.FruitGroup, True, pg.sprite.collide_circle())
+                    if pg.sprite.collide_circle(circle,fruit_):
+                        Fruits_nearby.append(fruit_)
+                        mean_hp_gains.append(sum(fruit_.hp_gain)/2)
+        
+        if not Fruits_nearby:
+            return False , 'no_food'
+
+
+        food = Fruits_nearby[mean_hp_gains.index(max(mean_hp_gains))]
+        coords = [food.rect.centerx,food.rect.centery]
+        move, msg = self.Move(coords)
+        
+        # healing
+        hp_gain = random.randint(food.hp_gain[0],food.hp_gain[1])
+        self.hp += hp_gain
+        if self.hp > self.full_hp:
+            self.hp = self.full_hp
+        
+        DisplayDamage([self.rect.centerx,self.rect.centery],[-hp_gain,msg])
+        self.Talk('yummy')
+        food.kill()
+
+        return True , ''
 
     def Talk(self, msg):
         self.phrase = msg
@@ -902,13 +987,18 @@ class Bar(pg.sprite.Sprite):
             self.x_offset = 60
             self.y_offset = 2
             self.number_images = 6
-            image_name = 'info01_ss.png'
-            self.sheet , self.rect_frames = ReadSpriteSheet(self.path + image_name  , self.RC_tup, self.number_images)
-            ind = -(-self.number_images*unit.resource//unit.full_resource)
-            rect = pg.Rect(self.rect_frames[self.number_images-ind])
-            self.surf = pg.Surface(rect.size,pg.SRCALPHA)
-            self.surf.blit(self.sheet, (0, 0), rect)
-            #self.surf.set_colorkey((0,0,0), RLEACCEL)
+            if type(unit).__name__ == 'Unit':
+                image_name = 'info01_ss.png'
+                self.sheet , self.rect_frames = ReadSpriteSheet(self.path + image_name  , self.RC_tup, self.number_images)
+                ind = -(-self.number_images*unit.resource//unit.full_resource)
+                rect = pg.Rect(self.rect_frames[self.number_images-ind])
+                self.surf = pg.Surface(rect.size,pg.SRCALPHA)
+                self.surf.blit(self.sheet, (0, 0), rect)
+                #self.surf.set_colorkey((0,0,0), RLEACCEL)
+            elif type(unit).__name__ == 'Object':
+                image_name = 'info02.png'
+                self.scale_factor = 0.5
+                self.surf = pg.image.load(self.path + image_name ).convert_alpha()
 
         elif self.mode == 'bar':
             self.scale_factor = 0.7
@@ -947,25 +1037,39 @@ class Bar(pg.sprite.Sprite):
         self.TextGroup = pg.sprite.Group()
 
         if self.mode == 'info':
-            # Hp info
-            hp_text, _ = GAME_FONT.render(str(unit.hp) + '/' + str(unit.full_hp), (0, 0, 0) , size=12)
-            hp_sprite = pg.sprite.Sprite()
-            hp_sprite.surf = hp_text
-            hp_sprite.rect = (unit.rect.x + 110, unit.rect.y+17)
-            self.TextGroup.add(hp_sprite)
-            # Resource Info
-            resource_text, _ = GAME_FONT.render(unit.resource_name, (0, 0, 0) , size=12)
-            resource_name_sprite = pg.sprite.Sprite()
-            resource_name_sprite.surf = resource_text
-            resource_name_sprite.rect = (unit.rect.x + 79, unit.rect.y + 36)
-            self.TextGroup.add(resource_name_sprite)
-            # Name info
-            name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=16)
-            size_unit = unit.size
-            name_sprite = pg.sprite.Sprite()
-            name_sprite.surf = name_text
-            name_sprite.rect = (unit.rect.x - size_unit[0]*0.35,unit.rect.y - size_unit[1]*0.28)
-            self.TextGroup.add(name_sprite)
+            if type(unit).__name__ == 'Unit':
+                # Hp info
+                hp_text, _ = GAME_FONT.render(str(unit.hp) + '/' + str(unit.full_hp), (0, 0, 0) , size=12)
+                hp_sprite = pg.sprite.Sprite()
+                hp_sprite.surf = hp_text
+                hp_sprite.rect = (unit.rect.x + 110, unit.rect.y+17)
+                self.TextGroup.add(hp_sprite)
+                # Name info
+                name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=16)
+                size_unit = unit.size
+                name_sprite = pg.sprite.Sprite()
+                name_sprite.surf = name_text
+                name_sprite.rect = (unit.rect.x - size_unit[0]*0.35,unit.rect.y - size_unit[1]*0.28)
+                self.TextGroup.add(name_sprite)
+                # Resource Info
+                resource_text, _ = GAME_FONT.render(unit.resource_name, (0, 0, 0) , size=12)
+                resource_name_sprite = pg.sprite.Sprite()
+                resource_name_sprite.surf = resource_text
+                resource_name_sprite.rect = (unit.rect.x + 79, unit.rect.y + 36)
+                self.TextGroup.add(resource_name_sprite)
+            elif type(unit).__name__ == 'Object':
+                name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=12)
+                text_name_sprite = pg.sprite.Sprite()
+                text_name_sprite.surf = name_text
+                text_name_sprite.rect = (unit.rect.x + 79, unit.rect.y + 10)
+                self.TextGroup.add(text_name_sprite)
+                # Resource info
+                res_text, _ = GAME_FONT.render(str(unit.resource) + '/' + str(unit.full_resource), (0, 0, 0) , size=10)
+                res_sprite = pg.sprite.Sprite()
+                res_sprite.surf = res_text
+                res_sprite.rect = (unit.rect.x + 75, unit.rect.y+30)
+                self.TextGroup.add(res_sprite)
+
         elif self.mode == 'bar':
             up_text, _ = GAME_FONT.render(unit.actions_lst[0], (0, 0, 0) , size=12)
             down_text, _ = GAME_FONT.render(unit.actions_lst[1], (0, 0, 0) , size=12)
@@ -997,8 +1101,8 @@ class Bar(pg.sprite.Sprite):
         Attacky = self.rect.y + self.size[1]*(0.44+0.25)
         
         buttoms = {}
-        buttoms['Move'] = [Movex, Movey, self.size[0],self.size[1]*0.5]
-        buttoms['Attack'] = [Attackx, Attacky, self.size[0],self.size[1]*0.5]
+        buttoms['Up'] = [Movex, Movey, self.size[0],self.size[1]*0.5]
+        buttoms['Down'] = [Attackx, Attacky, self.size[0],self.size[1]*0.5]
         
 
         return buttoms
@@ -1013,12 +1117,12 @@ class Bar(pg.sprite.Sprite):
         
         isclick = False
 
-        B_move = unit.ActionBar_buttoms['Move']
+        B_move = unit.ActionBar_buttoms['Up']
         B_move_rx = (B_move[0] + B_move[2]*0.5 - (B_move[0] - B_move[2]*0.5) -6)*0.5
         B_move_x0 =  B_move[0]
         B_move_ry = (B_move[1] + B_move[3]*0.5 - (B_move[1] - B_move[3]*0.5) + 6 )*0.5
         B_move_y0 =  B_move[1]
-        B_attack_y0 =  unit.ActionBar_buttoms['Attack'][1]
+        B_attack_y0 =  unit.ActionBar_buttoms['Down'][1]
 
 
         if abs(mouse_pos[0] - (B_move_x0 + xoffset)) < B_move_rx :
@@ -1056,61 +1160,59 @@ class Bar(pg.sprite.Sprite):
             self.TextGroup.add(Text_down)
 
 class Object(pg.sprite.Sprite):
-    def __init__(self , name , pos):
+    def __init__(self , name , pos , player_name=None):
         super(Object, self).__init__()
 
         self.pos = pos
-        self.call_name = name
+        self.data = obj_dct[name]
+        self.name = name
+        if player_name:
+            self.player_name = player_name
 
-        if name == 'rock':
-            self.name = 'rock'
-            self.RC_tup = [2,3]
-            self.number_images = 6
-            self.scale_factor = 2
-            path_to_ss = main_dir + '/data/objects/Rocks/rock01_ss.png'
-        
-        elif name == 'tree':
-            self.name = 'tree'
-            self.RC_tup = [8,7]
-            self.number_images = 50
-            self.scale_factor = 1.2
-            self.SPI = 3
-            path_to_ss = main_dir + '/data/objects/Trees/bigtree_small_ss.png'
+        # Image
+        self.scale_factor = self.data['Image']['scale_factor']
+        self.number_of_sprites = self.data['Image']['number_of_sprites']
+        self.RC_tup = self.data['Image']['RowColumn_tup']
+        self.path_to_ss = main_dir + self.data['path']
+        self.SPI = self.data['Image']['SpritesPerIter']
 
-        elif name in ['House01','House02']:
-            self.name = 'house'
-            path_to_ss = main_dir + '/data/objects/House/' + name +'_ss.png'
-            self.RC_tup = [5,6]
-            self.SPI = 8
-            self.number_images = 26
-            self.scale_factor = 2.3
+        if len(self.data['types'])>1 and player_name:
+            types = self.data['types']
+            if 'A' in player_name: 
+                self.path_to_ss = self.path_to_ss.format(i=types[0])
+            elif 'B' in player_name:
+                self.path_to_ss = self.path_to_ss.format(i=types[1])
 
-        elif name == 'sky':
-            self.name = 'sky'
-            path_to_ss = main_dir + '/data/objects/Sky/Sky01.png'
-            self.RC_tup = [1,1]
-            self.SPI = 1
-            self.number_images = 1
-            self.scale_factor = 1
-
-        self.sheet , self.rect_frames = ReadSpriteSheet(path_to_ss, self.RC_tup , self.number_images )
-        self.rect = pg.Rect(self.rect_frames[0])
-        self.rect_size0 = self.rect.size
+        # Sprite
+        self.sheet , self.rect_frames = ReadSpriteSheet(self.path_to_ss, self.RC_tup , self.number_of_sprites )
+        rect = pg.Rect(self.rect_frames[0])
+        self.rect_size0 = rect.size
         self.rect_ind = 0
-        self.surf = pg.Surface(self.rect.size).convert()
-        self.surf.blit(self.sheet, (0, 0), self.rect)
-        self.surf.set_colorkey((0,0,0), RLEACCEL)
+        surf = pg.Surface(rect.size).convert()
+        surf.blit(self.sheet, (0, 0), rect)
+        surf.set_colorkey((0,0,0), RLEACCEL)
+        self.surf = pg.transform.scale(surf, (int(self.rect_size0[0]*self.scale_factor), int(self.rect_size0[1]*self.scale_factor)))
         self.rect = self.surf.get_rect(center=(self.pos[0],self.pos[1]))
-        self.surf = pg.transform.scale(self.surf, (int(self.rect_size0[0]*self.scale_factor), int(self.rect_size0[1]*self.scale_factor)))
         self.size = self.surf.get_size()
 
+        # Parameters
+        self.HasBar = None
+        if 'Parameters' in self.data:
+            self.resource_name = self.data['Parameters']['resource']
+            self.full_resource = self.data['Parameters']['full_resource']
+            self.resource = self.full_resource
+            self.resource_drain = self.data['Parameters']['resource_drain']
+            self.HasBar = True
+
+        if 'Fruit' in self.data:
+            self.FruitGroup = pg.sprite.Group()
+            self.fruit_capacity = self.data['Fruit']['capacity']
+
         # video
-        self.HasBar = True
         self.animation_time = 0
         self.run_animation = False
         self.DisplayActionBar = False
-        self.animation_ind = 0
-
+        self.animation_ind = 0 
 
     def animate(self, backwards = False):
         self.animation_ind += 1
@@ -1119,7 +1221,7 @@ class Object(pg.sprite.Sprite):
             self.surf, self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , 
                             self.sheet , self.pos, self.size, self.rect_ind)
 
-            if self.rect_ind+1  == self.number_images:
+            if self.rect_ind+1  == self.number_of_sprites:
                 self.rect_ind = 0
                 self.animation_ind = 0
                 self.run_animation = False
@@ -1128,6 +1230,51 @@ class Object(pg.sprite.Sprite):
                 else:
                     self.surf, self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , 
                                     self.sheet , self.pos, self.size, self.rect_ind)
+    
+    def grown_fruit(self):
+        if len(self.FruitGroup.sprites()) >= (self.fruit_capacity ):
+            pass
+        else:
+            fruit =  pg.sprite.Sprite()
+            fruit.name = self.data['Fruit']['name']
+            surf = pg.image.load(main_dir + obj_dct['Food'][fruit.name]['path']).convert_alpha()
+            size = surf.get_size()
+            scale_factor = obj_dct['Food'][fruit.name]['scale_factor']
+            surf = pg.transform.scale(surf,(int(size[0]*scale_factor),int(size[1]*scale_factor)))
+            fruit.surf = surf
+            fruit.hp_gain = obj_dct['Food'][fruit.name]['hp_gain']
+            f_yrandom = random.randint(0,100)
+            f_xrandom = random.randint(0,100)
+            yfr = self.rect.top*1.08 + f_yrandom*(self.rect.centery-self.rect.top*1.08)/100
+            xfr = self.rect.centerx + 0.8*self.surf.get_width()*(f_xrandom-50)/100
+            fruit.rect = fruit.surf.get_rect(center=(xfr,yfr))
+
+            if len(self.FruitGroup.sprites()) == 0:
+                self.FruitGroup.add(fruit)
+            else:
+                collide = True
+                NF = len(self.FruitGroup.sprites())
+                tries = 50
+                while collide:
+                    ncheck = 0
+                    for fruit_ in self.FruitGroup.sprites():
+                        if abs(xfr-fruit_.rect.centerx)>6 and abs(yfr-fruit_.rect.centery)>7:
+                            ncheck += 1
+                        else:
+                            f_yrandom = random.randint(0,100)
+                            f_xrandom = random.randint(0,100)
+                            yfr = self.rect.top*1.08 + f_yrandom*(self.rect.centery-self.rect.top*1.08)/100
+                            xfr = self.rect.centerx + 0.8*self.surf.get_width()*(f_xrandom-50)/100
+                            fruit.rect = fruit.surf.get_rect(center=(xfr,yfr))
+                    
+                    if ncheck == NF or tries ==0 :
+                        collide = False
+                    
+                    tries -= 1
+                
+                fruit.rect = fruit.surf.get_rect(center=(xfr,yfr))
+                self.FruitGroup.add(fruit)
+                    
 
 class Log():
 
@@ -1252,39 +1399,38 @@ def main():
     pg.time.set_timer(CleanBattleField, 45000)
     HouseMovement = pg.USEREVENT + 3
     pg.time.set_timer(HouseMovement, 10000)
+    Grow_Fruit = pg.USEREVENT + 4
+    pg.time.set_timer(Grow_Fruit, 25000)
     
 
     # Add units to players
     Player_A.UnitsGroup.add(Unit('Archer',[300,500], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Villager',[600,200], Player_A.name))
+    Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     # Objects
-    ALL_OBJECTS.add(Object('sky',[900,0]))
-    ALL_OBJECTS.add(Object('rock',[900,700]))
-    ALL_OBJECTS.add(Object('rock',[950,720]))
-    ALL_OBJECTS.add(Object('tree',[150,400]))
-    ALL_OBJECTS.add(Object('tree',[80,180]))
-    ALL_OBJECTS.add(Object('tree',[80,300]))
-    ALL_OBJECTS.add(Object('tree',[30,310]))
+    ALL_OBJECTS.add(Object('Sky',[900,0]))
+    ALL_OBJECTS.add(Object('Rock',[900,700]))
+    ALL_OBJECTS.add(Object('Rock',[950,720]))
+    ALL_OBJECTS.add(Object('Tree',[850,400]))
+    ALL_OBJECTS.add(Object('Tree',[80,500]))
+    ALL_OBJECTS.add(Object('Tree',[80,300]))
+    ALL_OBJECTS.add(Object('Tree',[1500,150]))
     
     # Houses
-    Player_A.Home = Object('House01',[60,600])
-    Player_B.Home = Object('House02',[1600,150])
+    Player_A.Home = Object('House',[120,700], Player_A.name)
+    Player_B.Home = Object('House',[1600,150], Player_B.name)
 
     ALL_OBJECTS.add(Player_A.Home)
     ALL_OBJECTS.add(Player_B.Home)
-    
 
-    for sprites in ALL_OBJECTS.sprites():
-        ALL_SPRITES.add(sprites)
 
     for Player_ in Players_list:
         for sprites_ in Player_.UnitsGroup.sprites():
-            #all_units.add(sprites_)
             ALL_SPRITES.add(sprites_)
             
-    
     # Main loop
     running = True
     ActionBars = False
@@ -1345,9 +1491,16 @@ def main():
 
             elif event.type == MOVETREES:
                 for obj in ALL_OBJECTS.sprites():
-                    if obj.name == 'tree':
+                    if obj.name == 'Tree':
                         if not obj.run_animation:
                             obj.run_animation = True
+
+            elif event.type == Grow_Fruit:
+                for obj in ALL_OBJECTS.sprites():
+                    if obj.name == 'Tree':
+                        coin = random.randint(0,12)
+                        if coin < 2:
+                            obj.grown_fruit()
 
             elif event.type == HouseMovement:
                 for obj in ALL_OBJECTS.sprites():
@@ -1375,15 +1528,16 @@ def main():
                     else:
                         for unit in Player_inturn.UnitsGroup:
                             for abar in ALL_BOXES.sprites():
-                                if unit.DisplayActionBar:
+                                if unit.DisplayActionBar and unit.ActionBar:
                                     isclick = abar.is_click(pg.mouse.get_pos(), unit)
                                     if not isclick:
                                         ALL_BOXES.empty()
-                                        unit.actions_cycle = cycle(unit.actions_cycle_base)
-                                        unit.actions_lst = next(unit.actions_cycle)
+                                        unit.reset_bar()
                                         unit.action_updown = [0,0]
                                         unit.DisplayActionBar = False
                                         ActionBars = False
+                                    else:
+                                        break
                             if not ALL_BOXES.has():
                                 if unit.rect.collidepoint(pg.mouse.get_pos()):
                                     unit.DisplayActionBar = True
@@ -1407,17 +1561,22 @@ def main():
                         if pressed_keys[K_i]:
                             ActionBars = True
                             ALL_BOXES.add(Bar(entity, mode='info'))
+            
+            for entity in ALL_OBJECTS.sprites():
+                if entity.HasBar:
+                    if entity.rect.collidepoint(pg.mouse.get_pos()):
+                        if pressed_keys[K_i]:
+                            ActionBars = True
+                            ALL_BOXES.add(Bar(entity, mode='info'))
     
-
 
         for obj in ALL_OBJECTS.sprites():
             if obj.run_animation:
-                if obj.name == 'tree':
+                if obj.name == 'Tree':
                     obj.animate(backwards=True)
                 else:
                     obj.animate()
 
-    
         for unit in Player_inturn.UnitsGroup:
 
             Player_inturn, ActionBars, WaitingEnd = ActionLoop(Player_inturn, unit, 
@@ -1473,12 +1632,7 @@ def main():
             Logger.msg = ['',0]
             clock.tick(4)
 
-
-        for entity in ALL_OBJECTS:
-            SCREEN.blit(entity.surf, entity.rect)
-
-        for entity in ALL_SPRITES:
-            SCREEN.blit(entity.surf, entity.rect)
+        General_Blit()
 
         for entity in ALL_BOXES:
             SCREEN.blit(entity.surf, entity.rect)
@@ -1508,8 +1662,12 @@ if __name__ == "__main__":
 
     # Reading Units Info
     path_to_units_dct = main_dir + '/data/Units.yaml'
+    path_to_obj_dct = main_dir + '/data/Objects.yaml'
+    
     with open(path_to_units_dct, 'r+') as f:
         units_dct = yaml.load(f, Loader=yaml.Loader)
+    with open(path_to_obj_dct, 'r+') as f:
+        obj_dct = yaml.load(f, Loader=yaml.Loader)
 
     main()
     pg.quit()

@@ -1,0 +1,71 @@
+#
+# Objects
+#
+
+Tree:
+  name: 'tree'
+  path: '/data/objects/Trees/bigtree_small_ss.png'
+  types: ['']
+  
+  Image:
+    scale_factor: 1.2
+    number_of_sprites: 50
+    RowColumn_tup: [8,7]
+    SpritesPerIter: 3
+
+  Parameters:
+    resource: 'wood' 
+    full_resource: 100
+    resource_drain: 5
+  
+  Fruit:
+    name: 'Apple'
+    capacity: 4
+
+Rock:
+  name: 'rock'
+  path: '/data/objects/Rocks/rock01_ss.png'
+  types: ['']
+  
+  Image:
+    scale_factor: 2
+    number_of_sprites: 6
+    RowColumn_tup: [2,3]
+    SpritesPerIter: 3
+
+  Parameters:
+    resource: 'rock' 
+    full_resource: 80
+    resource_drain: 4
+
+Sky:
+  name: 'sky'
+  path: '/data/objects/Sky/Sky01.png'
+  types: ['']
+
+  Image:
+    scale_factor: 1
+    number_of_sprites: 1
+    RowColumn_tup: [1,1]
+    SpritesPerIter: 1
+
+House:
+  name: 'House'
+  path: '/data/objects/House/House{i}_ss.png'
+  types: ['01','02']
+
+  Image:
+    scale_factor: 2.3
+    number_of_sprites: 26
+    RowColumn_tup: [5,6]
+    SpritesPerIter: 8
+
+  Actions:
+    actions: ['Buy','Upgrade']
+
+Food:
+  Apple:
+    name: 'Apple'
+    path: '/data/objects/Food/apple.png'
+    scale_factor: 0.45
+    hp_gain: [3,5]

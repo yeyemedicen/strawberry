@@ -40,7 +40,7 @@ Archer:
 Villager:  
   name: Villager
   path: '/data/characters/Villager/'
-  types: ['M','M','02M','02F']
+  types: ['01F','01F','02F','02F']
   gender: ['Male','Female']
 
   Image:
