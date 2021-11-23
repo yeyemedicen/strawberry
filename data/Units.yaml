@@ -18,14 +18,17 @@ Archer:
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
     full_hp: 60
+    cost:
+      food: 2 #0
+      wood: 8 #0
     resource_name: 'stamina'
-    full_resource: 15
-    resource_drain: 2
+    full_resource: 25
+    resource_drain: 3
     mov_range: 150
     speed: 2
     attack_types:
       Ranged:
-        Normal-shot:
+        Shot:
           damage: [7,12]
           range: 180
           accuracy: 88
@@ -40,7 +43,7 @@ Archer:
 Villager:  
   name: Villager
   path: '/data/characters/Villager/'
-  types: ['01F','01F','02F','02F']
+  types: ['M','01F','02F','02F']
   gender: ['Male','Female']
 
   Image:
@@ -54,10 +57,13 @@ Villager:
   Parameters:
     actions: ['Move','Work','Attack','Eat','Talk']
     full_hp: 45
+    cost:
+      food: 60
+      wood: 20
     resource_name: 'stamina'
-    full_resource: 15
+    full_resource: 35
     resource_drain: 2
-    mov_range: 100
+    mov_range: 140
     speed: 2
     attack_types:
       Melee:
@@ -80,16 +86,20 @@ Knight:
 
   Parameters:
     full_hp: 80
+    cost:
+      food: 20
+      rock: 60
     resource_name: 'stamina'
     full_resource: 15
     resource_drain: 4
-    mov_range: 80
+    mov_range: 100
     speed: 2
     attack_types:
       Melee:
-        damage: [9,14]
-        range: 10
-        accuracy: 90
+        Slash:
+          damage: [9,14]
+          range: 10
+          accuracy: 90
 
 Priest:
   name: Priest
@@ -105,17 +115,23 @@ Priest:
 
   Parameters:
     full_hp: 50
+    cost:
+      food: 50
+      wood: 50
+      rock: 50
     resource_name: 'faith'
     full_resource: 15
     resource_drain: 5
-    mov_range: 50
+    mov_range: 80
     speed: 2
     attack_types:
       Melee:
-        damage: [5,9]
-        range: 10
-        accuracy: 80
-      Pray:
-        heal: [8,15]
-        range: 200
-        accuracy: 60
+        Smite:
+          damage: [5,9]
+          range: 10
+          accuracy: 80
+      Faith:
+        Heal:
+          heal: [8,15]
+          range: 200
+          accuracy: 60

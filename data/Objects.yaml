@@ -13,9 +13,9 @@ Tree:
     RowColumn_tup: [8,7]
     SpritesPerIter: 3
 
-  Parameters:
+  Resources:
     resource: 'wood' 
-    full_resource: 100
+    full_resource: 150
     resource_drain: 5
   
   Fruit:
@@ -33,7 +33,7 @@ Rock:
     RowColumn_tup: [2,3]
     SpritesPerIter: 3
 
-  Parameters:
+  Resources:
     resource: 'rock' 
     full_resource: 80
     resource_drain: 4
@@ -60,8 +60,7 @@ House:
     RowColumn_tup: [5,6]
     SpritesPerIter: 8
 
-  Actions:
-    actions: ['Buy','Upgrade']
+  actions: ['Buy','Upgrade']
 
 Food:
   Apple:
