@@ -5,27 +5,26 @@
 Archer:  
   name: Archer
   path: '/data/characters/Archer/'
-  types: ['01','02']
+  types: ['A','B']
   
   Image:
-    scale_factor: 0.9
-    number_of_sprites: 18
-    RowColumn_tup: [9,2]
-    movement_sprites:
-      right: 9
-      left: 9
+    scale_factor: 0.35
+    number_of_sprites: 36
+    RowColumn_tup: [6,6]
+    movement_sprites: 9
+    attack_sprites: 9
 
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
     full_hp: 60
     cost:
       food: 2 #0
-      wood: 8 #0
+      wood: 80
     resource_name: 'stamina'
     full_resource: 25
     resource_drain: 3
     mov_range: 150
-    speed: 2
+    speed: 4
     attack_types:
       Ranged:
         Shot:
@@ -43,28 +42,27 @@ Archer:
 Villager:  
   name: Villager
   path: '/data/characters/Villager/'
-  types: ['M','01F','02F','02F']
+  types: ['A','B']
   gender: ['Male','Female']
 
   Image:
-    scale_factor: [0.3,0.3]  #1.3 both
-    number_of_sprites: 18
-    RowColumn_tup: [5,4]
-    movement_sprites:
-      right: 9
-      left: 9
+    scale_factor: [0.3,0.3]
+    number_of_sprites: 34
+    RowColumn_tup: [8,5]
+    movement_sprites: 9
+    working_sprites: 8
 
   Parameters:
     actions: ['Move','Work','Attack','Eat','Talk']
     full_hp: 45
     cost:
-      food: 60
+      food: 6 #0
       wood: 20
     resource_name: 'stamina'
     full_resource: 35
     resource_drain: 2
     mov_range: 140
-    speed: 2
+    speed: 4
     attack_types:
       Melee:
         Punch:

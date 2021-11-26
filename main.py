@@ -41,10 +41,6 @@ def General_Blit():
             for fruit_ in entity.FruitGroup:
                 SCREEN.blit(fruit_.surf, fruit_.rect)
 
-    for player in Players_list:
-        for unit in player.UnitsGroup:
-            SCREEN.blit(unit.surf, unit.rect)
-
     for entity in ALL_SPRITES:
         SCREEN.blit(entity.surf, entity.rect)
 
@@ -316,6 +312,7 @@ def BuyingLoop(Player, ActionBars):
     book.rect = rect
     book.size = surf.get_size()
     book.display_info = None
+    CanAfford = True
     catalogue = Catalogue(book)
 
     while Player.Home.IsBuying:
@@ -384,30 +381,33 @@ def BuyingLoop(Player, ActionBars):
                 else:
                     for buttom in catalogue.Buttoms:
                         if buttom.rect.collidepoint(pg.mouse.get_pos()):
+                            CanAfford = True
                             unit_cost = units_dct[buttom.unit]['Parameters']['cost']
                             # checking if player can afford
                             for res in unit_cost:
                                 if Player.resources[res] < unit_cost[res]:
                                     Logger.info(['Cannot afford that unit ' , 1], holdtime = 2)
+                                    CanAfford = False
                                     break
-                                else:
+                                
                                 # Buying
                                     Player.resources[res] -= unit_cost[res]
 
+                            if CanAfford:
+                                Logger.info([Player.name + ' has bought an ' + buttom.unit , 1], holdtime = 3)
 
-                            Logger.info([Player.name + ' has bought an ' + buttom.unit , 1], holdtime = 2.1)
-                            
-                            # Adding the new unit
-                            position = Player.Home.rect.midbottom
-                            NEW_UNIT = Unit(buttom.unit,[position[0],position[1]], Player.name)
-                            Player.UnitsGroup.add(NEW_UNIT)
+                                # Adding the new unit
+                                position = Player.Home.rect.midbottom
+                                NEW_UNIT = Unit(buttom.unit,[position[0],position[1]], Player.name)
+                                Player.UnitsGroup.add(NEW_UNIT)
+                                ALL_SPRITES.add(NEW_UNIT)
 
-                            Player.Home.IsBuying = False
-                            Player.Home.DisplayActionBar = False
-                            ActionBars = False
-                            book.kill()
-                            catalogue.kill()
-                            Player.Home.action_updown = [0,0]
+                                Player.Home.IsBuying = False
+                                Player.Home.DisplayActionBar = False
+                                ActionBars = False
+                                book.kill()
+                                catalogue.kill()
+                                Player.Home.action_updown = [0,0]
 
                                 
 
@@ -520,7 +520,7 @@ def EatingLoop(Player, unit, ActionBars, WaitingEnd):
 
     # the unit will try to eat
     IsFeed , msg = unit.Eat()
-    
+
     if IsFeed:
         unit.IsEating = False
         unit.IsWorking = False
@@ -542,6 +542,13 @@ def EatingLoop(Player, unit, ActionBars, WaitingEnd):
             unit.DisplayActionBar = False
             unit.reset_bar()
             unit.action_updown = [0,0]
+        if msg == 'full_hp':
+            ActionBars = False
+            unit.IsEating = False
+            unit.DisplayActionBar = False
+            unit.reset_bar()
+            unit.action_updown = [0,0]
+            unit.Talk('I am not hungry')
             
     return Player, ActionBars, WaitingEnd
 
@@ -760,25 +767,26 @@ class Unit(pg.sprite.Sprite):
 
         if 'gender' in self.data:
             coin = random.randint(0,1)
-            if coin > 0:
-                if 'A' in player_name:
-                    self.type = self.data['types'][0]
-                else:
-                    self.type = self.data['types'][2]
+            if coin > -1:
+                self.type += 'M'
                 self.scale_factor = self.scale_factor[0]
             else:
-                if 'A' in player_name:
-                    self.type = self.data['types'][1]
-                else:
-                    self.type = self.data['types'][3]
+                self.type += 'F'
                 self.scale_factor = self.scale_factor[1]
         
         
         self.number_of_sprites = self.data['Image']['number_of_sprites']
-        self.movement_sprites = [self.data['Image']['movement_sprites']['right'],
-                                     self.data['Image']['movement_sprites']['left']]
-        self.RC_tup = self.data['Image']['RowColumn_tup']
+        self.movement_sprites = [self.data['Image']['movement_sprites'], self.data['Image']['movement_sprites']]
+        
+        if 'working_sprites' in self.data['Image']:
+            self.working_sprites = [self.data['Image']['working_sprites'],self.data['Image']['working_sprites']]
+        if 'attack_sprites' in self.data['Image']:
+            self.attack_sprites = [self.data['Image']['attack_sprites'],self.data['Image']['attack_sprites']]
+        
 
+        self.RC_tup = self.data['Image']['RowColumn_tup']
+        self.SPI = 5
+        self.animation_ind = 0
 
         # Parameters
         self.action_updown = [0,0]
@@ -830,7 +838,9 @@ class Unit(pg.sprite.Sprite):
         self.size = self.surf.get_size()
 
         # Worked objects group
-        self.WorkingObject = pg.sprite.Group()
+        if 'Work' in self.data['Parameters']['actions']:
+            self.WorkingObject = pg.sprite.Group()
+            self.work_direction = None
 
         # Info related
         self.phrase = []
@@ -870,6 +880,12 @@ class Unit(pg.sprite.Sprite):
         elif action == 'Work':
             self.StartWork = True
 
+    def ChangeSprite(self):
+        rect = pg.Rect(self.rect_frames[self.rect_ind])
+        surf = pg.Surface(self.rect_size0 ,pg.SRCALPHA)
+        surf.blit(self.sheet, (0, 0), rect)
+        self.surf = pg.transform.scale(surf, (self.size[0], self.size[1]))
+        
     def reset_bar(self):
         self.actions_cycle = cycle(self.actions_cycle_base)
         self.actions_lst = next(self.actions_cycle)
@@ -1040,7 +1056,37 @@ class Unit(pg.sprite.Sprite):
                              self.pos, self.size, 0)
 
 
-            Dt = 45 # Milisecond
+            # Attack Animation
+            if d_x>=0:
+                animate_mode = 'Attack-Right'
+            else:
+                animate_mode = 'Attack-Left'
+
+            Dt = 15 # Milisecond
+            if animate_mode == 'Attack-Right':
+                initial_frame = sum(self.movement_sprites)
+                last_frame = initial_frame + self.attack_sprites[0]
+            else:
+                initial_frame = sum(self.movement_sprites) + self.attack_sprites[0]
+                last_frame = sum(self.movement_sprites) + sum(self.attack_sprites)
+
+            initial_rect_ind = self.rect_ind
+            for frame in range(self.attack_sprites[0]):
+                self.rect_ind = initial_frame + frame
+                self.ChangeSprite()
+                
+                SCREEN.fill(SCREEN_COLOR)
+                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
+                Logger.info()
+
+                General_Blit()                
+
+                pg.display.flip()
+                clock.tick(Dt)
+
+
+
+            Dt = 55 # Milisecond
             theta0 = Arrow.angle
             theta_range = Arrow.angle_range
             ALL_SPRITES.add(Arrow)
@@ -1053,9 +1099,9 @@ class Unit(pg.sprite.Sprite):
 
                 Arrow.rect.center = (xtraj[t], ytraj[t])
                 SCREEN.fill(SCREEN_COLOR)
-                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
                 Logger.info()
+
 
                 General_Blit()                
              
@@ -1064,12 +1110,21 @@ class Unit(pg.sprite.Sprite):
                 
             self.resource -= self.resource_drain
 
+
+            self.rect_ind = initial_rect_ind
+            self.ChangeSprite()
+
+
             if not IsShoted:
                 return False, 'accuracy'
             else:
                 return True, [damage_value,critical]
 
     def Eat(self):
+
+
+        if self.hp == self.full_hp:
+            return False, 'full_hp'
 
         circle = pg.sprite.Sprite()
         #circle_draw = pg.draw.circle(SCREEN,color=(255,102,102),center=(self.rect.centerx,self.rect.centery),
@@ -1132,8 +1187,9 @@ class Unit(pg.sprite.Sprite):
             return False , 'no_work_source'
 
         work_source = source_nearby[distance_between.index(min(distance_between))]
+        direction_right = (work_source.rect.centerx - self.rect.centerx) > 0
 
-        if work_source.rect.centerx > self.rect.centerx:
+        if direction_right:
             coords = tuple(map(operator.add, work_source.rect.bottomleft, work_source.rect.midbottom))
         else:
             coords = tuple(map(operator.add, work_source.rect.bottomright, work_source.rect.midbottom))
@@ -1142,17 +1198,17 @@ class Unit(pg.sprite.Sprite):
         
         self.Move(coords, forced = True)
 
-        if work_source.rect.centerx > self.rect.centerx:
+        if direction_right:
+            self.work_mode = 'right'
             if self.rect_ind != 0:
                 self.rect_ind = 0
-                self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size, self.rect_ind)
+                self.ChangeSprite()
         
         else:
+            self.work_mode = 'left'
             if self.rect_ind == 0:
-                self.rect_ind = self.movement_sprites[0]+1
-                self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size, self.rect_ind)
+                self.rect_ind = self.movement_sprites[0]
+                ChangeSprite()
 
 
         self.Talk('let\'s work!')
@@ -1178,14 +1234,42 @@ class Unit(pg.sprite.Sprite):
         
         rect = surf.get_rect(center=(self.pos[0],self.pos[1]))
         surf = pg.transform.scale(surf, (int(rect_size0[0]*self.scale_factor), int(rect_size0[1]*self.scale_factor)))
-        #size = surf.get_size()
         
         corpse = pg.sprite.Sprite()
         corpse.surf = surf
         corpse.rect = rect
+        corpse.name = 'corpse'
+        corpse.HasBar = None
+        corpse.run_animation = False
         ALL_OBJECTS.add(corpse)
 
         self.kill()
+
+    def animate(self, mode):
+
+        if mode == 'Work':
+            if self.work_mode == 'right':
+                initial_frame = sum(self.movement_sprites)
+                last_frame = sum(self.movement_sprites) + self.working_sprites[0]
+            elif self.work_mode == 'left':
+                initial_frame = sum(self.movement_sprites) + self.working_sprites[0]
+                last_frame = sum(self.movement_sprites) + sum(self.working_sprites)
+            else:
+                raise Exception(self.work_mode,'not recognized')
+
+
+        if self.animation_ind == 0:
+            self.rect_ind = initial_frame
+
+        self.animation_ind += 1
+
+        if self.animation_ind%self.SPI == 0:
+
+            self.ChangeSprite()
+            self.rect_ind += 1
+
+            if self.rect_ind == last_frame:
+                self.animation_ind = 0
 
 class Weapon(pg.sprite.Sprite):
     def __init__(self , name , pos, coords=[]):
@@ -1844,9 +1928,6 @@ def main():
     Player_B = Player('Player B')
     Player_inturn_cycle = cycle([Player_A, Player_B])
     Player_inturn = next(Player_inturn_cycle)
-    #Player_waiting_cycle = cycle([Player_B, Player_A])
-    #Player_waiting = next(Player_waiting_cycle)
-    #Players_list = [Player_A, Player_B]
     Players_list.append(Player_A)
     Players_list.append(Player_B)
     
@@ -1865,15 +1946,17 @@ def main():
     
 
     # Add units to players
-    Player_A.UnitsGroup.add(Unit('Archer',[300,500], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Archer',[300,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
     Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     # Objects
     ALL_OBJECTS.add(Object('Sky',[900,0]))
+    ALL_OBJECTS.add(Object('Rock',[350,500]))
     ALL_OBJECTS.add(Object('Rock',[900,700]))
     ALL_OBJECTS.add(Object('Rock',[950,720]))
+    ALL_OBJECTS.add(Object('Rock',[1250,172]))
     ALL_OBJECTS.add(Object('Tree',[850,400]))
     ALL_OBJECTS.add(Object('Tree',[80,500]))
     ALL_OBJECTS.add(Object('Tree',[80,300]))
@@ -1887,9 +1970,9 @@ def main():
     ALL_OBJECTS.add(Player_B.Home)
 
 
-    #for Player_ in Players_list:
-    #    for sprites_ in Player_.UnitsGroup.sprites():
-    #        ALL_SPRITES.add(sprites_)
+    for Player_ in Players_list:
+        for sprites_ in Player_.UnitsGroup.sprites():
+            ALL_SPRITES.add(sprites_)
             
     # Main loop
     running = True
@@ -1964,7 +2047,7 @@ def main():
 
             elif event.type == HouseMovement:
                 for obj in ALL_OBJECTS.sprites():
-                    if obj.name == 'house':
+                    if obj.name == 'House':
                         if not obj.run_animation:
                             Coin = random.randint(0,1)
                             if Coin:
@@ -2067,6 +2150,7 @@ def main():
 
             # Deliver Resources
             if unit.IsWorking:
+
                 actions_left = Player_inturn.TotalActions - Player_inturn.NumberOfActions
                 if bool(actions_left - unit.HadWorked):
                     worked_object = unit.WorkingObject.sprites()[0]
@@ -2078,14 +2162,29 @@ def main():
                         unit.resource = 0
                         unit.IsWorking = False
                         unit.Talk('I need rest...')
+                        unit.rect_ind = 0
+                        unit.animation_ind = 0
+                        unit.ChangeSprite()
 
                     if worked_object.resource <= 0:
                         worked_object.kill()
                         unit.IsWorking = False
                         unit.Talk('This is over')
+                        unit.rect_ind = 0
+                        unit.animation_ind = 0
+                        unit.ChangeSprite()
 
             if not ActionBars:
                 ALL_BOXES.empty()
+
+
+        # Runing animations of units if need it
+        for sprite in ALL_SPRITES:
+            if type(sprite).__name__ == 'Unit':
+                if sprite.IsWorking:
+                    sprite.animate(mode = 'Work')
+            
+                    
 
         # Buying or Upgrading
         if Player_inturn.Home.IsBuying:
@@ -2127,12 +2226,18 @@ def main():
                                 if unit.resource <=0:
                                     unit.resource = 0
                                     unit.IsWorking = False
-                                    unit.Talk('I need rest...')              
+                                    unit.Talk('I need rest...')
+                                    unit.rect_ind = 0
+                                    unit.animation_ind = 0
+                                    unit.ChangeSprite()       
             
                                 if worked_object.resource <= 0:
                                     worked_object.kill()
                                     unit.IsWorking = False
                                     unit.Talk('This is over')
+                                    unit.rect_ind = 0
+                                    unit.animation_ind = 0
+                                    unit.ChangeSprite()  
 
 
                 activities = unit.HadMoved + unit.HadAttacked + unit.HadWorked
