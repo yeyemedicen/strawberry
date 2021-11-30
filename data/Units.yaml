@@ -24,7 +24,7 @@ Archer:
     full_resource: 25
     resource_drain: 3
     mov_range: 150
-    speed: 4
+    speed: 1
     attack_types:
       Ranged:
         Shot:
@@ -62,7 +62,7 @@ Villager:
     full_resource: 35
     resource_drain: 2
     mov_range: 140
-    speed: 4
+    speed: 1
     attack_types:
       Melee:
         Punch:

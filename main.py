@@ -389,8 +389,8 @@ def BuyingLoop(Player, ActionBars):
                                     Logger.info(['Cannot afford that unit ' , 1], holdtime = 2)
                                     CanAfford = False
                                     break
-                                
-                                # Buying
+                                else:
+                                    # Buying
                                     Player.resources[res] -= unit_cost[res]
 
                             if CanAfford:
@@ -424,9 +424,10 @@ def BuyingLoop(Player, ActionBars):
 
     return Player, ActionBars
 
-def ActionLoop(Player, unit, MovingUnit, AttackingUnit,ActionBars, WaitingEnd, pressed_keys):
+def ActionLoop(Player, unit, MovingUnit, AttackingUnit, ActionBars, WaitingEnd, pressed_keys):
 
     
+
     if unit.IsMoving:
         Player, ActionBars, WaitingEnd = MovingLoop(Player, unit, MovingUnit, 
                                             ActionBars, WaitingEnd, pressed_keys)
@@ -470,15 +471,16 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
         pg.mouse.set_cursor(pg.cursors.arrow)
         MovingUnit['on'] = False
         MovingUnit['coords'] = []
+
     if MovingUnit['coords']:
         # the unit will try to move
         IsMoved , msg = unit.Move(MovingUnit['coords'])
         if IsMoved:
+            Logger.info([Player.name + ' is moving...', 1 ])
             unit.IsMoving = False
             unit.IsWorking = False
             Player.NumberOfActions -= 1
             Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
-            Logger.info([Player.name + ' had moved' , 1], holdtime = 2)
             # Checking InHome condition
             if DistanceBetween(unit,Player.Home) < 130:
                 unit.InHome = True
@@ -557,7 +559,7 @@ def WorkingLoop(Player, unit, ActionBars, WaitingEnd):
         Working loop using the player and the unit
     '''
 
-    Logger.info([Player.name + ' started a work', 1 ])
+    #Logger.info([Player.name + ' started a work', 1 ])
 
     IsWorking , msg = unit.Work()
     
@@ -754,6 +756,7 @@ class Unit(pg.sprite.Sprite):
 
         self.data = units_dct[name]
         self.name = name
+        self.Player_name = player_name
         self.pos = pos
 
         if 'A' in player_name:
@@ -850,12 +853,16 @@ class Unit(pg.sprite.Sprite):
         self.ActionBar_buttoms = {'Up': [] , 'Down': []}
         self.ActionBarPage = 0
         self.InHome = False
-        self.IsMoving = False
         self.IsAttacking = False
         self.IsEating = False
         self.IsWorking = False
         self.StartWork = False
         self.IsTalking = False
+
+        # Move
+        self.IsMoving = False
+        self.OnMoving = False
+        self.MovingInfo = {'coords': [], 'sprites': None, 'horizontal': [], 'vertical': [], 'right/left': None }
 
         self.HadMoved = 0
         self.HadAttacked = 0
@@ -913,86 +920,27 @@ class Unit(pg.sprite.Sprite):
             displacement_x = int(coords[0]) - self.rect.centerx
             displacement_y = int(coords[1]) - self.rect.centery
             
-            displacement_x_sign = 0
-            sprite_chain = []
+            self.MovingInfo['coords'] = [int(coords[0]),int(coords[1])]
 
-            if displacement_x > 0:
-                displacement_x_sign = 1
-                for k in range(1,self.movement_sprites[0]):
-                    sprite_chain.append(k)
-                sprite_chain_c = cycle(sprite_chain)
-
-            elif displacement_x<0:
-                displacement_x_sign = -1
-                for k in range(self.movement_sprites[0]+1,sum(self.movement_sprites)):
-                    sprite_chain.append(k)
-                sprite_chain_c = cycle(sprite_chain)
+            if displacement_x >0:
+                self.MovingInfo['right/left'] = 'right'
+                self.MovingInfo['sprites'] = [1, self.movement_sprites[0]]
+                self.MovingInfo['h_dir'] = 1
+            else:
+                self.MovingInfo['right/left'] = 'left'
+                self.MovingInfo['sprites'] = [self.movement_sprites[0] + 1, sum(self.movement_sprites)]
+                self.MovingInfo['h_dir'] = -1
 
 
-            displacement_y_sign = 0
-            if displacement_y<0:
-                displacement_y_sign = -1
-            elif displacement_y > 0:
-                displacement_y_sign = 1
-            
+            if displacement_y > 0:
+                self.MovingInfo['v_dir'] = 1
+            else:
+                self.MovingInfo['v_dir'] = -1
 
-            sprite_ind = next(sprite_chain_c)
-            time_ticking = 15
 
-            for k in range(int(abs(displacement_x)/self.speed)):
-                self.rect.move_ip(self.speed*displacement_x_sign,0)
-                self.pos[0] += self.speed*displacement_x_sign # updating inner center coordinates
-                
-                #self.ChangeSprite(sprite_ind)
-                self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size, sprite_ind)
-
-                SCREEN.fill(SCREEN_COLOR)
-                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
-                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
-                Logger.info()
-
-                General_Blit()
-
-                pg.display.flip()
-                sprite_ind = next(sprite_chain_c)
-                clock.tick(time_ticking)
-
-            
-
-            for _ in range(int(abs(displacement_y)/self.speed)):
-                self.rect.move_ip(0,self.speed*displacement_y_sign)
-                self.pos[1] += self.speed*displacement_y_sign # updating inner center coordinates
-                
-                #self.ChangeSprite(sprite_ind)
-                self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size , sprite_ind)
-
-                SCREEN.fill(SCREEN_COLOR)
-                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_UP),end_pos=(SCREEN_WIDTH,LINE_UP),width=2)
-                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
-                Logger.info()
-                General_Blit()
-                pg.display.flip()
-                sprite_ind = next(sprite_chain_c)
-                clock.tick(time_ticking)       
-            
-
-            self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size, sprite_chain[0]-1)
-
-            self.rect_ind = sprite_chain[0]-1
+            self.OnMoving = True
+            self.animation_ind = 0
             self.resource -= self.resource_drain
-            # Keep player on the SCREEN
-            if self.rect.left < 0:
-                self.rect.left = 0
-            if self.rect.right > SCREEN_WIDTH:
-                self.rect.right = SCREEN_WIDTH
-            if self.rect.top <= LINE_UP:
-               self.rect.top = LINE_UP
-            if self.rect.bottom >= LINE_DOWN:
-                self.rect.bottom = LINE_DOWN
-            
 
             return moving , ''
         
@@ -1114,6 +1062,8 @@ class Unit(pg.sprite.Sprite):
             self.rect_ind = initial_rect_ind
             self.ChangeSprite()
 
+            Arrow.run_animation = True
+
 
             if not IsShoted:
                 return False, 'accuracy'
@@ -1199,20 +1149,13 @@ class Unit(pg.sprite.Sprite):
         self.Move(coords, forced = True)
 
         if direction_right:
-            self.work_mode = 'right'
-            if self.rect_ind != 0:
-                self.rect_ind = 0
-                self.ChangeSprite()
-        
+            self.work_mode = 'right'        
         else:
             self.work_mode = 'left'
-            if self.rect_ind == 0:
-                self.rect_ind = self.movement_sprites[0]
-                ChangeSprite()
 
 
         self.Talk('let\'s work!')
-        
+
         self.WorkingObject.add(work_source)
 
         return True , ''
@@ -1247,6 +1190,8 @@ class Unit(pg.sprite.Sprite):
 
     def animate(self, mode):
 
+        run_animation = True
+
         if mode == 'Work':
             if self.work_mode == 'right':
                 initial_frame = sum(self.movement_sprites)
@@ -1257,19 +1202,59 @@ class Unit(pg.sprite.Sprite):
             else:
                 raise Exception(self.work_mode,'not recognized')
 
+        if mode == 'Move':
+            initial_frame = self.MovingInfo['sprites'][0]
+            last_frame = self.MovingInfo['sprites'][1]
 
-        if self.animation_ind == 0:
-            self.rect_ind = initial_frame
-
-        self.animation_ind += 1
-
-        if self.animation_ind%self.SPI == 0:
-
-            self.ChangeSprite()
-            self.rect_ind += 1
-
-            if self.rect_ind == last_frame:
+            if abs(self.pos[0] - self.MovingInfo['coords'][0])>2:
+                self.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
+                self.pos[0] += self.speed*self.MovingInfo['h_dir']
+            else:
+                self.MovingInfo['h_dir'] = 0
+            if abs(self.pos[1] - self.MovingInfo['coords'][1])>2:
+                self.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
+                self.pos[1] += self.speed*self.MovingInfo['v_dir']
+            else:
+                self.MovingInfo['v_dir'] = 0
+            
+            if self.MovingInfo['h_dir'] == 0 and self.MovingInfo['v_dir'] == 0:
+                # Ending the movement
+                run_animation = False
+                self.OnMoving = False
+                if self.MovingInfo['right/left'] == 'right':
+                    self.rect_ind = 0
+                else:
+                    self.rect_ind = self.movement_sprites[0]
+                
+                self.MovingInfo['sprites'] = []
                 self.animation_ind = 0
+                self.ChangeSprite()
+                
+                # Keep player on the SCREEN
+                if self.rect.left < 0:
+                    self.rect.left = 0
+                if self.rect.right > SCREEN_WIDTH:
+                    self.rect.right = SCREEN_WIDTH  
+                if self.rect.top <= LINE_UP:
+                    self.rect.top = LINE_UP
+                if self.rect.bottom >= LINE_DOWN:
+                    self.rect.bottom = LINE_DOWN
+                
+                Logger.info([self.Player_name + ' had moved' , 1], holdtime = 2)
+            
+
+        if run_animation:
+            if self.animation_ind == 0:
+                self.rect_ind = initial_frame
+
+            self.animation_ind += 1
+
+            if self.animation_ind%self.SPI == 0:
+                self.ChangeSprite()
+                self.rect_ind += 1
+
+                if self.rect_ind == last_frame:
+                    self.animation_ind = 0
 
 class Weapon(pg.sprite.Sprite):
     def __init__(self , name , pos, coords=[]):
@@ -1305,7 +1290,36 @@ class Weapon(pg.sprite.Sprite):
             self.surf = pg.transform.scale(surf, (int(size[0]*self.scale_factor), int(size[1]*self.scale_factor)))
             self.size = surf.get_size()
         
+
+        self.SPI = 4
+        self.animation_ind = 0
         self.HasBar = False
+        self.run_animation = False
+    
+    def ChangeSprite(self):
+        rect = pg.Rect(self.rect_frames[self.rect_ind])
+        surf = pg.Surface(self.rect_size0 ,pg.SRCALPHA)
+        surf.blit(self.sheet, (0, 0), rect)
+        self.surf = pg.transform.scale(surf, (self.size[0], self.size[1]))
+
+    def animate(self):
+
+        run_animation = True
+        initial_frame = 0
+        last_frame = 15
+
+        if run_animation:
+            if self.animation_ind == 0:
+                self.rect_ind = initial_frame
+
+            self.animation_ind += 1
+
+            if self.animation_ind%self.SPI == 0:
+                self.ChangeSprite()
+                self.rect_ind += 1
+
+                if self.rect_ind == last_frame:
+                    self.animation_ind = 0
 
 class Bar(pg.sprite.Sprite):
     def __init__(self, unit, mode = None):
@@ -1600,10 +1614,15 @@ class Object(pg.sprite.Sprite):
             self.fruit_capacity = self.data['Fruit']['capacity']
 
         # video
-        self.animation_time = 0
         self.run_animation = False
         self.DisplayActionBar = False
         self.animation_ind = 0 
+
+    def ChangeSprite(self):
+        rect = pg.Rect(self.rect_frames[self.rect_ind])
+        surf = pg.Surface(self.rect_size0 ,pg.SRCALPHA)
+        surf.blit(self.sheet, (0, 0), rect)
+        self.surf = pg.transform.scale(surf, (self.size[0], self.size[1]))
 
     def animate(self, backwards = False):
         self.animation_ind += 1
@@ -1665,6 +1684,15 @@ class Object(pg.sprite.Sprite):
                 
                 fruit.rect = fruit.surf.get_rect(center=(xfr,yfr))
                 self.FruitGroup.add(fruit)
+
+    def update(self):
+        if self.name == 'Rock':
+            status = -(-self.number_of_sprites*self.resource//self.full_resource)
+            self.rect_ind = self.number_of_sprites - status
+            if self.rect_ind >= self.number_of_sprites:
+                self.kill()
+            else:
+                self.ChangeSprite()
 
 class Catalogue(pg.sprite.Sprite):
     def __init__(self, book):
@@ -1763,10 +1791,13 @@ class Catalogue(pg.sprite.Sprite):
         # Images
         for pos, unit in zip(self.page_pos, units_dct):
             if unit in ['Archer','Villager']:
-                xoffset = -150
+                xoffset = -160
                 yoffset = 15
 
-                path_to_ss = main_dir + units_dct[unit]['path'] + unit + units_dct[unit]['types'][0] +'_ss.png'
+                gender = ''
+                if 'gender' in units_dct[unit]:
+                    gender = 'M'
+                path_to_ss = main_dir + units_dct[unit]['path'] + unit + units_dct[unit]['types'][0] +gender + '_ss.png'
                 RC_tup = units_dct[unit]['Image']['RowColumn_tup']
                 sheet , rect_frames = ReadSpriteSheet(path_to_ss , RC_tup , units_dct[unit]['Image']['number_of_sprites'])
                 rect_ind = 0
@@ -1977,6 +2008,7 @@ def main():
     # Main loop
     running = True
     ActionBars = False
+    UnitOnAction = False
     WaitingEnd = False
     MovingUnit = {'on': False , 'coords' : []}
     AttackingUnit = {'on': False , 'target' : [], 'unit':[]}
@@ -2158,6 +2190,7 @@ def main():
                     worked_object.resource -= worked_object.resource_drain
                     unit.HadWorked += 1
                     unit.resource -= unit.resource_drain
+                    worked_object.update()
                     if unit.resource <= 0:
                         unit.resource = 0
                         unit.IsWorking = False
@@ -2179,11 +2212,23 @@ def main():
 
 
         # Runing animations of units if need it
+        UnitOnAction_lst = []
         for sprite in ALL_SPRITES:
             if type(sprite).__name__ == 'Unit':
-                if sprite.IsWorking:
+                UnitOnAction_lst.append(sprite.OnMoving)
+                if sprite.OnMoving:
+                    sprite.animate(mode = 'Move')
+                elif sprite.IsWorking and not sprite.OnMoving:
                     sprite.animate(mode = 'Work')
-            
+            elif type(sprite).__name__ == 'Weapon':
+                if sprite.run_animation:
+                    sprite.animate()
+
+        if any(UnitOnAction_lst):
+            UnitOnAction = True
+        else:
+            UnitOnAction = False
+
                     
 
         # Buying or Upgrading
@@ -2201,7 +2246,7 @@ def main():
                     Logger.EndGame([Players_list[i_p-1].name + ' is the winner!!' , 4])
 
                 
-        if WaitingEnd:
+        if WaitingEnd and not UnitOnAction:
             Logger.info([Player_inturn.name + ' is done. Press Enter' , 4])
 
         # End of the Turn
@@ -2222,6 +2267,7 @@ def main():
                                 worked_object.resource -= worked_object.resource_drain
                                 unit.HadWorked += 1
                                 unit.resource -= unit.resource_drain
+                                worked_object.update()
 
                                 if unit.resource <=0:
                                     unit.resource = 0
@@ -2311,10 +2357,6 @@ if __name__ == "__main__":
 
     main()
     pg.quit()
-
-
-
-
 
 
 
