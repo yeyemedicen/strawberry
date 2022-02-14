@@ -26,6 +26,7 @@ from pygame.locals import (
     QUIT,
     K_RETURN,
     K_c,
+    K_f,
     K_m,
     K_n,
     K_r,
@@ -109,23 +110,23 @@ def DamageCalculation(unit_name, damage):
     damage_value = 0
     critical = ''
 
-    if unit_name == 'Archer':
-            
-        x = random.randint(damage[0],damage[1])
-        g = random.randint(0,100)
-        # Calculation of damage. For the moment all attacks are the same here
-        # Low-Damage attack
-        if g < 20:
-            x = int(x*0.5)
-        elif g > 90:
-            # Critical hit. Reported
-            x = 2*x
-            critical = 'critical'
-        else:
-            # Normal damage
-            pass    
 
-        damage_value = x
+    x = random.randint(damage[0],damage[1])
+    g = random.randint(0,100)
+    # Calculation of damage. For the moment all attacks are the same here
+    # Low-Damage attack
+    if g < 20:
+        x = int(x*0.5)
+    elif g > 90:
+        # Critical hit. Reported
+        x = 2*x
+        critical = 'critical'
+    else:
+        # Normal damage
+        pass    
+
+    damage_value = x
+
 
     return damage_value , critical
 
@@ -159,7 +160,7 @@ def DisplayResources(Players_list, color=None):
             SCREEN.blit(text, (SCREEN_WIDTH*0.76,SCREEN_HEIGHT*0.97))
 
 def DisplayDamage(coords,damage):
-    yoffset = -60
+    yoffset = -10
     xoffset = -10
 
     if damage[0]>=0:
@@ -170,10 +171,11 @@ def DisplayDamage(coords,damage):
     else:
         damage_text, _ = GAME_FONT.render(str(-damage[0]), (102, 255, 102) , size=12)
 
-    SCREEN.blit(damage_text, (coords[0]+xoffset,coords[1]+yoffset))
-    pg.display.flip()
-    pg.time.delay(500)
-    SCREEN.fill(SCREEN_COLOR)
+    damage_sprite = pg.sprite.Sprite()
+    damage_sprite.surf = damage_text
+    damage_sprite.rect = (coords[0]+xoffset,coords[1]+yoffset)
+
+    return damage_sprite
 
 def DisplayInfo(unit, SCREEN, number_images, info_mode=False):
     # Canvas
@@ -235,6 +237,136 @@ def DisplayInfo(unit, SCREEN, number_images, info_mode=False):
     size_unit = unit.surf.get_size()
     SCREEN.blit(name_text, (unit.rect.x - size_unit[0]*0.2,unit.rect.y - size_unit[1]*0.28))
 
+def ExtractingResources(Player, unit, actions_saved=None):
+    
+    if not actions_saved:
+        actions_left = Player.TotalActions - Player.NumberOfActions
+        if bool(actions_left - unit.HadWorked):
+            worked_object = unit.WorkingObject.sprites()[0]
+            worked_object.resource -= worked_object.resource_drain
+            unit.HadWorked += 1
+            # reducing the stamina of the workers
+            unit.resource -= unit.resource_drain
+            worked_object.update()
+
+            if unit.resource <= 0:
+                unit.resource = 0
+                unit.IsWorking = False
+                unit.Talk('I need rest...')
+                unit.rect_ind = 0
+                unit.animation_ind = 0
+                unit.ChangeSprite()
+
+            if worked_object.resource <= 0:
+                Player.resources[worked_object.resource_name] += worked_object.resource + worked_object.resource_drain
+                worked_object.kill()
+                unit.IsWorking = False
+                unit.Talk('This is over!')
+                unit.rect_ind = 0
+                unit.animation_ind = 0
+                unit.ChangeSprite()
+            else:
+                Player.resources[worked_object.resource_name] += worked_object.resource_drain
+
+    else:
+        if actions_saved >0:
+            worked_object = unit.WorkingObject.sprites()[0]
+            for _ in range(actions_saved):
+                if unit.resource != 0:
+                    worked_object.resource -= worked_object.resource_drain
+                    unit.HadWorked += 1
+                    unit.resource -= unit.resource_drain
+                    worked_object.update()
+
+                    if unit.resource <=0:
+                        unit.resource = 0
+                        unit.IsWorking = False
+                        unit.Talk('I need rest...')
+                        unit.rect_ind = 0
+                        unit.animation_ind = 0
+                        unit.ChangeSprite()       
+
+                    if worked_object.resource <= 0:
+                        Player.resources[worked_object.resource_name] += worked_object.resource + worked_object.resource_drain
+                        worked_object.kill()
+                        unit.IsWorking = False
+                        unit.Talk('This is over')
+                        unit.rect_ind = 0
+                        unit.animation_ind = 0
+                        unit.ChangeSprite()
+                        break
+                    else:
+                        Player.resources[worked_object.resource_name] += worked_object.resource_drain
+
+def GatheringResources(Player, unit, actions_saved=None):
+    
+    if not actions_saved:
+        actions_left = Player.TotalActions - Player.NumberOfActions
+        if bool(actions_left - unit.HadWorked):
+            gathered_object = unit.GatheringObject.sprites()[0]
+            food_in = gathered_object.FruitGroup.sprites()[0]
+            food_gain = random.randint(food_in.hp_gain[0],food_in.hp_gain[1])
+            food_in.kill()
+            unit.HadWorked += 1
+            # reducing the stamina of the workers
+            unit.resource -= unit.resource_drain
+            # only for rock
+            gathered_object.update()
+
+            Player.resources['food'] += food_gain
+
+            if unit.resource <= 0:
+                unit.resource = 0
+                unit.IsGathering = False
+                unit.Talk('I need rest...')
+                unit.rect_ind = 0
+                unit.animation_ind = 0
+                unit.ChangeSprite()
+                unit.GatheringObject.empty()
+
+            if len(gathered_object.FruitGroup) == 0:
+                unit.IsGathering = False
+                unit.Talk('No more to collect!')
+                unit.rect_ind = 0
+                unit.animation_ind = 0
+                unit.ChangeSprite()
+                unit.GatheringObject.empty()
+
+
+    else:
+        if actions_saved >0:
+            gathered_object = unit.GatheringObject.sprites()[0]
+            for _ in range(actions_saved):
+                if unit.resource != 0:
+                    food_in = gathered_object.FruitGroup.sprites()[0]
+                    food_gain = random.randint(food_in.hp_gain[0],food_in.hp_gain[1])
+                    food_in.kill()
+                    unit.HadWorked += 1
+                    # reducing the stamina of the workers
+                    unit.resource -= unit.resource_drain
+                    # only for rock
+                    gathered_object.update()
+
+                    Player.resources['food'] += food_gain
+
+                    if unit.resource <= 0:
+                        unit.resource = 0
+                        unit.IsGathering = False
+                        unit.Talk('I need rest...')
+                        unit.rect_ind = 0
+                        unit.animation_ind = 0
+                        unit.ChangeSprite()
+                        unit.GatheringObject.empty()
+
+                    if len(gathered_object.FruitGroup) == 0:
+                        unit.IsGathering = False
+                        unit.Talk('No more to collect!')
+                        unit.rect_ind = 0
+                        unit.animation_ind = 0
+                        unit.ChangeSprite()
+                        unit.GatheringObject.empty()
+                        break
+ 
 def ActionBar_IsClick(mouse_pos, unit):
     '''
          if there is a click in the Action Bar buttoms
@@ -426,7 +558,6 @@ def BuyingLoop(Player, ActionBars):
 
 def ActionLoop(Player, unit, MovingUnit, AttackingUnit, ActionBars, WaitingEnd, pressed_keys):
 
-    
 
     if unit.IsMoving:
         Player, ActionBars, WaitingEnd = MovingLoop(Player, unit, MovingUnit, 
@@ -435,7 +566,6 @@ def ActionLoop(Player, unit, MovingUnit, AttackingUnit, ActionBars, WaitingEnd, 
     elif unit.IsAttacking:
         Player, ActionBars, WaitingEnd = AttackingLoop(Player, unit, 
                      AttackingUnit, ActionBars, WaitingEnd, pressed_keys)
-
 
     elif unit.IsEating:
         Player, ActionBars, WaitingEnd = EatingLoop(Player, unit, ActionBars, WaitingEnd)
@@ -446,6 +576,8 @@ def ActionLoop(Player, unit, MovingUnit, AttackingUnit, ActionBars, WaitingEnd, 
     elif unit.IsTalking:
         ActionBars = TalkingLoop(unit, ActionBars)
 
+    elif unit.StartGathering:
+        Player, ActionBars, WaitingEnd = GatherLoop(Player, unit, ActionBars, WaitingEnd)
 
     return Player, ActionBars, WaitingEnd
         
@@ -482,7 +614,7 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
             Player.NumberOfActions -= 1
             Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
             # Checking InHome condition
-            if DistanceBetween(unit,Player.Home) < 130:
+            if DistanceBetween(unit,Player.Home) < 100:
                 unit.InHome = True
             else:
                 unit.InHome = False
@@ -515,7 +647,7 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
 
 def EatingLoop(Player, unit, ActionBars, WaitingEnd):
     '''
-        Moving loop using the player and the unit
+        Eating loop using the player and the unit
     '''
 
     Logger.info([Player.name + ' is eating...', 1 ])
@@ -551,6 +683,41 @@ def EatingLoop(Player, unit, ActionBars, WaitingEnd):
             unit.reset_bar()
             unit.action_updown = [0,0]
             unit.Talk('I am not hungry')
+            
+    return Player, ActionBars, WaitingEnd
+
+def GatherLoop(Player, unit, ActionBars, WaitingEnd):
+    '''
+        Gather loop using the player and the unit
+    '''
+
+    Logger.info([Player.name + ' is gathering food...', 1 ])
+
+    # the unit will try to eat
+    IsGathering , msg = unit.Gather()
+
+    if IsGathering:
+        unit.IsGathering = True
+        unit.StartGathering = False
+        unit.IsWorking = False
+        Player.NumberOfActions -= 1
+        Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
+        if Player.NumberOfActions == 0:
+            WaitingEnd = True
+        
+        unit.DisplayActionBar = False
+        ActionBars = False
+        unit.reset_bar()
+        unit.action_updown = [0,0]
+    else:
+        if msg == 'no_food':
+            Logger.info(['No food nearby!' , 1], holdtime = 1)
+            ActionBars = False
+            unit.StartGathering = False
+            unit.DisplayActionBar = False
+            unit.reset_bar()
+            unit.action_updown = [0,0]
+
             
     return Player, ActionBars, WaitingEnd
 
@@ -627,21 +794,12 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
 
     if AttackingUnit['target']:
         # the unit will try to attack
-        IsAttack , msg = unit.Attack(AttackingUnit['target'])
+        IsAttack , msg = unit.Attack(AttackingUnit['target'],AttackingUnit['unit'])
         if IsAttack:
             unit.IsAttacking = False
             unit.IsWorking = False
             Player.NumberOfActions -= 1
             Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
-
-            if AttackingUnit['unit']:
-                DisplayDamage(AttackingUnit['target'],msg)
-                AttackingUnit['unit'].hp -= msg[0]
-                if AttackingUnit['unit'].hp < 0:
-                    AttackingUnit['unit'].Died()
-
-                if msg[1] == 'critical':
-                    Logger.info(['Critical hit!', 1], holdtime = 2)
 
             if Player.NumberOfActions == 0:
                 WaitingEnd = True
@@ -658,6 +816,7 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
             if msg == 'range':
                 Logger.info(['The target is too far away!' , 1], holdtime=2)
                 AttackingUnit['target'] = []
+                AttackingUnit['unit'] = []
                 
             elif msg == 'resource':
                 pg.mouse.set_cursor(pg.cursors.arrow)
@@ -770,7 +929,7 @@ class Unit(pg.sprite.Sprite):
 
         if 'gender' in self.data:
             coin = random.randint(0,1)
-            if coin > -1:
+            if coin > 0:
                 self.type += 'M'
                 self.scale_factor = self.scale_factor[0]
             else:
@@ -845,6 +1004,11 @@ class Unit(pg.sprite.Sprite):
             self.WorkingObject = pg.sprite.Group()
             self.work_direction = None
 
+        if 'Gather' in self.data['Parameters']['actions']:
+            self.GatheringObject = pg.sprite.Group()
+            self.gather_direction = None
+        
+
         # Info related
         self.phrase = []
         self.HasBar = True
@@ -858,6 +1022,8 @@ class Unit(pg.sprite.Sprite):
         self.IsWorking = False
         self.StartWork = False
         self.IsTalking = False
+        self.StartGathering = False
+        self.IsGathering = False
 
         # Move
         self.IsMoving = False
@@ -875,6 +1041,7 @@ class Unit(pg.sprite.Sprite):
         self.IsEating = False
         self.IsTalking = False
         self.StartWork = False
+        self.StartGathering = False
         
         if action == 'Move':
             self.IsMoving = True
@@ -882,6 +1049,8 @@ class Unit(pg.sprite.Sprite):
             self.IsAttacking = True
         elif action == 'Eat':
             self.IsEating = True
+        elif action == 'Gather':
+            self.StartGathering = True
         elif action == 'Talk':
             self.IsTalking = True
         elif action == 'Work':
@@ -943,11 +1112,14 @@ class Unit(pg.sprite.Sprite):
             self.resource -= self.resource_drain
 
             return moving , ''
-        
-    def Attack(self,coords):
-        return self.Range_Attack(coords)
 
-    def Range_Attack(self, coords):
+    def Attack(self,coords,target_unit):
+        if 'Ranged' in self.attacks_types:
+            return self.Range_Attack(coords, target_unit)
+        elif 'Melee' in self.attacks_types:
+            return self.Melee_Attack(coords, target_unit)
+
+    def Range_Attack(self, coords, target_unit):
 
         ranges = []
         for att in self.attacks:
@@ -983,8 +1155,8 @@ class Unit(pg.sprite.Sprite):
             if not IsShoted:
                 #Failed coords
                 nexp = random.randint(0,10)
-                x_rand = coords[0] + (-1)**nexp*random.randint(int(0.1*coords[0]),int(0.3*coords[0]))
-                y_rand = coords[1] + (-1)**nexp*random.randint(int(0.1*coords[1]),int(0.3*coords[1]))
+                x_rand = coords[0] + (-1)**nexp*random.randint(int(0.1*coords[0]),int(0.2*coords[0]))
+                y_rand = coords[1] + (-1)**nexp*random.randint(int(0.1*coords[1]),int(0.2*coords[1]))
                 coords = [x_rand,y_rand]
 
             damage_value, critical = DamageCalculation(self.name, damage)
@@ -995,13 +1167,11 @@ class Unit(pg.sprite.Sprite):
             if d_x<0:
                 if self.rect_ind == 0:
                     self.rect_ind = self.movement_sprites[0]
-                    self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size, self.movement_sprites[0])
+                    self.ChangeSprite()
             elif d_x>0:
                 if self.rect_ind == self.movement_sprites[0]:
                     self.rect_ind = 0
-                    self.surf , self.rect = ChangeSprite(self.rect_frames, self.rect_size0 , self.sheet , 
-                             self.pos, self.size, 0)
+                    self.ChangeSprite()
 
 
             # Attack Animation
@@ -1010,15 +1180,15 @@ class Unit(pg.sprite.Sprite):
             else:
                 animate_mode = 'Attack-Left'
 
-            Dt = 15 # Milisecond
+            Dt = 12 # Milisecond
             if animate_mode == 'Attack-Right':
                 initial_frame = sum(self.movement_sprites)
-                last_frame = initial_frame + self.attack_sprites[0]
             else:
                 initial_frame = sum(self.movement_sprites) + self.attack_sprites[0]
-                last_frame = sum(self.movement_sprites) + sum(self.attack_sprites)
 
             initial_rect_ind = self.rect_ind
+
+
             for frame in range(self.attack_sprites[0]):
                 self.rect_ind = initial_frame + frame
                 self.ChangeSprite()
@@ -1033,45 +1203,106 @@ class Unit(pg.sprite.Sprite):
                 clock.tick(Dt)
 
 
-
-            Dt = 55 # Milisecond
-            theta0 = Arrow.angle
-            theta_range = Arrow.angle_range
-            ALL_SPRITES.add(Arrow)
-
-            for t in range(len(xtraj)):
-                theta = arctan(-dtraj[t])*180/pi
-                theta_index = int((theta-theta0)*Arrow.number_of_sprites/theta_range)
-                Arrow.surf, Arrow.rect = ChangeSprite(Arrow.rect_frames, Arrow.rect_size0 , 
-                             Arrow.sheet , Arrow.pos, Arrow.size, theta_index)
-
-                Arrow.rect.center = (xtraj[t], ytraj[t])
-                SCREEN.fill(SCREEN_COLOR)
-                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
-                Logger.info()
-
-
-                General_Blit()                
-             
-                pg.display.flip()
-                clock.tick(Dt)
-                
+            ALL_OBJECTS.add(Arrow)                        
             self.resource -= self.resource_drain
-
-
+            # Restoring unit frame
             self.rect_ind = initial_rect_ind
             self.ChangeSprite()
 
+            Arrow.Trajectory['xtraj'] = xtraj
+            Arrow.Trajectory['ytraj'] = ytraj
+            Arrow.Trajectory['dtraj'] = dtraj
+            Arrow.IsShoted = IsShoted
             Arrow.run_animation = True
+            if target_unit:
+                Arrow.TargetUnit = target_unit
 
 
             if not IsShoted:
                 return False, 'accuracy'
             else:
+                Arrow.msg = [damage_value,critical]
+                return True, [damage_value,critical]
+
+    def Melee_Attack(self, coords, target_unit):
+
+        ranges = []
+        for att in self.attacks:
+            ranges.append(att['range'])
+
+        distance = ((coords[0] - self.rect.centerx)**2 + (coords[1] - self.rect.centery)**2)**(0.5)
+
+        # Failed by Range
+        if distance > max(ranges):
+            # attack longer than unit range!
+            return False , 'range'
+        
+        # Failed by resource
+        if self.resource-self.resource_drain <= 0:
+            return False , 'resource'
+        
+        else:
+
+            accuracy = random.randint(0,100)
+            IsDone = True
+            damage = self.attacks[0]['damage']
+            att_accuracy = self.attacks[0]['accuracy']
+            
+            if att_accuracy <= (100-accuracy):
+                IsDone = False
+
+            if not IsDone:
+                #Failed coords
+                nexp = random.randint(0,10)
+                x_rand = coords[0] + (-1)**nexp*random.randint(int(0.1*coords[0]),int(0.15*coords[0]))
+                y_rand = coords[1] + (-1)**nexp*random.randint(int(0.1*coords[1]),int(0.15*coords[1]))
+                coords = [x_rand,y_rand]
+
+            damage_value, critical = DamageCalculation(self.name, damage)
+            d_x = coords[0] - self.pos[0]
+
+            if d_x<0:
+                if self.rect_ind == 0:
+                    self.rect_ind = self.movement_sprites[0]
+                    self.ChangeSprite()
+                initial_frame = sum(self.movement_sprites) + self.attack_sprites[0]
+
+            else:
+                if self.rect_ind == self.movement_sprites[0]:
+                    self.rect_ind = 0
+                    self.ChangeSprite()
+
+                initial_frame = sum(self.movement_sprites)
+
+
+            Dt = 12 # Milisecond
+            initial_rect_ind = self.rect_ind
+
+            for frame in range(self.attack_sprites[0]):
+                self.rect_ind = initial_frame + frame
+                self.ChangeSprite()
+                
+                SCREEN.fill(SCREEN_COLOR)
+                pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
+                Logger.info()
+
+                General_Blit()                
+
+                pg.display.flip()
+                clock.tick(Dt)
+
+                     
+            self.resource -= self.resource_drain
+            # Restoring unit frame
+            self.rect_ind = initial_rect_ind
+            self.ChangeSprite()
+
+            if not IsDone:
+                return False, 'accuracy'
+            else:
                 return True, [damage_value,critical]
 
     def Eat(self):
-
 
         if self.hp == self.full_hp:
             return False, 'full_hp'
@@ -1081,7 +1312,7 @@ class Unit(pg.sprite.Sprite):
         #             radius=self.mov_range,width=2)
         
         circle.rect = self.rect
-        circle.radius = self.mov_range
+        circle.radius = self.mov_range*0.6
 
         # Looking for food in the mov range
         # Fruits
@@ -1115,12 +1346,52 @@ class Unit(pg.sprite.Sprite):
 
         return True , ''
 
+    def Gather(self):
+
+        circle = pg.sprite.Sprite()        
+        circle.rect = self.rect
+        circle.radius = self.mov_range*0.6
+
+        # Looking for food in the mov range
+        # Fruits
+        source_nearby = []
+        distance = []
+
+        for object_ in ALL_OBJECTS.sprites():
+            if 'FruitGroup' in vars(object_):
+                if len(object_.FruitGroup.sprites()) > 0:
+                    if pg.sprite.collide_circle(circle, object_):
+                        source_nearby.append(object_)
+                        distance.append(DistanceBetween(self,object_))
+
+        if not source_nearby:
+            return False , 'no_food'
+
+        gather_source = source_nearby[distance.index(min(distance))]
+        direction_right = (gather_source.rect.centerx - self.rect.centerx) > 0
+
+        if direction_right:
+            coords = tuple(map(operator.add, gather_source.rect.bottomleft, gather_source.rect.midbottom))
+            self.work_mode = 'right'
+        else:
+            coords = tuple(map(operator.add, gather_source.rect.bottomright, gather_source.rect.midbottom))
+            self.work_mode = 'left'
+        
+
+        coords = [coords[0]*0.5,coords[1]*0.5]
+
+        self.Move(coords, forced=True)
+        self.Talk('let\'s work!')
+        self.GatheringObject.add(gather_source)
+
+        return True , ''
+
     def Work(self):
 
         # Fetch a work source
         circle = pg.sprite.Sprite()
         circle.rect = self.rect
-        circle.radius = self.mov_range
+        circle.radius = self.mov_range*0.6
 
         # Looking for food in the mov range
         # Fruits
@@ -1141,21 +1412,15 @@ class Unit(pg.sprite.Sprite):
 
         if direction_right:
             coords = tuple(map(operator.add, work_source.rect.bottomleft, work_source.rect.midbottom))
+            self.work_direction = 'right'
         else:
             coords = tuple(map(operator.add, work_source.rect.bottomright, work_source.rect.midbottom))
+            self.work_direction = 'left'
         
         coords = [coords[0]*0.5,coords[1]*0.5]
         
         self.Move(coords, forced = True)
-
-        if direction_right:
-            self.work_mode = 'right'        
-        else:
-            self.work_mode = 'left'
-
-
         self.Talk('let\'s work!')
-
         self.WorkingObject.add(work_source)
 
         return True , ''
@@ -1193,10 +1458,10 @@ class Unit(pg.sprite.Sprite):
         run_animation = True
 
         if mode == 'Work':
-            if self.work_mode == 'right':
+            if self.work_direction == 'right':
                 initial_frame = sum(self.movement_sprites)
                 last_frame = sum(self.movement_sprites) + self.working_sprites[0]
-            elif self.work_mode == 'left':
+            elif self.work_direction == 'left':
                 initial_frame = sum(self.movement_sprites) + self.working_sprites[0]
                 last_frame = sum(self.movement_sprites) + sum(self.working_sprites)
             else:
@@ -1242,7 +1507,6 @@ class Unit(pg.sprite.Sprite):
                 
                 Logger.info([self.Player_name + ' had moved' , 1], holdtime = 2)
             
-
         if run_animation:
             if self.animation_ind == 0:
                 self.rect_ind = initial_frame
@@ -1278,7 +1542,7 @@ class Weapon(pg.sprite.Sprite):
                 
 
             self.scale_factor = 0.8
-            self.angle = -90
+            self.angle0 = -90
             self.angle_range = 180
             self.rect_ind = 0
             rect = pg.Rect(self.rect_frames[self.rect_ind])
@@ -1289,12 +1553,20 @@ class Weapon(pg.sprite.Sprite):
             size = surf.get_size()
             self.surf = pg.transform.scale(surf, (int(size[0]*self.scale_factor), int(size[1]*self.scale_factor)))
             self.size = surf.get_size()
+            self.Trajectory = {'xtraj': None , 'ytraj': None, 'dtraj': None}
+            self.duration = 90
+            self.time_on_ground = 0
+            self.msg = None
+            self.TargetUnit = None
         
 
-        self.SPI = 4
+        self.damage_text = None
+        self.damage_duration = 0
+        self.SPI = 2
         self.animation_ind = 0
         self.HasBar = False
         self.run_animation = False
+        self.IsShoted = False
     
     def ChangeSprite(self):
         rect = pg.Rect(self.rect_frames[self.rect_ind])
@@ -1305,21 +1577,53 @@ class Weapon(pg.sprite.Sprite):
     def animate(self):
 
         run_animation = True
-        initial_frame = 0
-        last_frame = 15
+
+        if self.animation_ind == len(self.Trajectory['xtraj']):
+            # Ending the movement
+            run_animation = False
+            
+            if self.TargetUnit and self.IsShoted:
+                self.damage_text = DisplayDamage(self.TargetUnit.rect.midtop,self.msg)
+                self.TargetUnit.hp -= self.msg[0]
+                if self.TargetUnit.hp < 0:
+                    self.TargetUnit.Died()
+
+                if self.msg[1] == 'critical':
+                    Logger.info(['Critical hit!', 1], holdtime = 2)
+
+
+            if abs(arctan(-self.Trajectory['dtraj'][self.animation_ind-1])*180/pi) < 15:
+                # Keeping the arrow vertical when landed it
+                self.rect_ind = random.randint(0,5)
+                self.ChangeSprite()
+
+            self.Trajectory = {'xtraj': None , 'ytraj': None, 'dtraj': None}     
+            self.animation_ind = 0
+            self.run_animation = False
+            self.time_on_ground = clock.get_time()
+            self.damage_duration = self.time_on_ground 
 
         if run_animation:
-            if self.animation_ind == 0:
-                self.rect_ind = initial_frame
 
-            self.animation_ind += 1
+            xtraj = self.Trajectory['xtraj']
+            ytraj = self.Trajectory['ytraj']
+            dtraj = self.Trajectory['dtraj']
 
             if self.animation_ind%self.SPI == 0:
-                self.ChangeSprite()
-                self.rect_ind += 1
 
-                if self.rect_ind == last_frame:
-                    self.animation_ind = 0
+                theta = arctan(-dtraj[self.animation_ind])*180/pi
+                if not self.IsShoted:
+                    theta += random.randint(-15,15)
+                    if abs(int(theta-self.angle0)) >= 180:
+                        theta = arctan(-dtraj[self.animation_ind])*180/pi
+
+
+                self.rect_ind = int((theta-self.angle0)*self.number_of_sprites/self.angle_range)
+                self.rect.center = (xtraj[self.animation_ind], ytraj[self.animation_ind])
+                self.ChangeSprite()
+            
+
+            self.animation_ind += 1
 
 class Bar(pg.sprite.Sprite):
     def __init__(self, unit, mode = None):
@@ -1545,6 +1849,13 @@ class Bar(pg.sprite.Sprite):
             Text_down.surf = down_text; Text_down.rect = (self.text_x,self.text_dwny)
             self.TextGroup.add(Text_up)
             self.TextGroup.add(Text_down)
+            # Name Text
+            name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=16)
+            size_unit = unit.size
+            name_sprite = pg.sprite.Sprite()
+            name_sprite.surf = name_text
+            name_sprite.rect = (unit.rect.x - size_unit[0]*0.35,unit.rect.y - size_unit[1]*0.28)
+            self.TextGroup.add(name_sprite)
 
 class Object(pg.sprite.Sprite):
     def __init__(self , name , pos , player_name=None):
@@ -1575,9 +1886,10 @@ class Object(pg.sprite.Sprite):
         rect = pg.Rect(self.rect_frames[0])
         self.rect_size0 = rect.size
         self.rect_ind = 0
-        surf = pg.Surface(rect.size).convert()
+        surf = pg.Surface(self.rect_size0, pg.SRCALPHA)
+        #surf.set_colorkey((0,0,0), RLEACCEL)
         surf.blit(self.sheet, (0, 0), rect)
-        surf.set_colorkey((0,0,0), RLEACCEL)
+
         self.surf = pg.transform.scale(surf, (int(self.rect_size0[0]*self.scale_factor), int(self.rect_size0[1]*self.scale_factor)))
         self.rect = self.surf.get_rect(center=(self.pos[0],self.pos[1]))
         self.size = self.surf.get_size()
@@ -1647,16 +1959,34 @@ class Object(pg.sprite.Sprite):
         else:
             fruit =  pg.sprite.Sprite()
             fruit.name = self.data['Fruit']['name']
-            surf = pg.image.load(main_dir + obj_dct['Food'][fruit.name]['path']).convert_alpha()
-            size = surf.get_size()
+            
+            RC_tup = obj_dct['Food'][fruit.name]['RC_tup']
             scale_factor = obj_dct['Food'][fruit.name]['scale_factor']
-            surf = pg.transform.scale(surf,(int(size[0]*scale_factor),int(size[1]*scale_factor)))
+            number_of_sprites = obj_dct['Food'][fruit.name]['number_of_sprites']
+
+
+            path_to_ss = main_dir + obj_dct['Food'][fruit.name]['path']
+            sheet , rect_frames = ReadSpriteSheet(path_to_ss , RC_tup , number_of_sprites)
+            
+            if number_of_sprites == 1:
+                rect_ind = 0
+            else:
+                rect_ind = random.randint(0,number_of_sprites-1)
+            
+            rect = pg.Rect(rect_frames[rect_ind])
+            rect_size0 = rect.size
+            surf = pg.Surface(rect_size0, pg.SRCALPHA)
+            surf.blit(sheet, (0, 0), rect)
+
+            surf = pg.transform.scale(surf, (int(rect_size0[0]*scale_factor), int(rect_size0[1]*scale_factor)))
+
             fruit.surf = surf
             fruit.hp_gain = obj_dct['Food'][fruit.name]['hp_gain']
             f_yrandom = random.randint(0,100)
             f_xrandom = random.randint(0,100)
-            yfr = self.rect.top*1.08 + f_yrandom*(self.rect.centery-self.rect.top*1.08)/100
-            xfr = self.rect.centerx + 0.8*self.surf.get_width()*(f_xrandom-50)/100
+            offset = self.data['Fruit']['offset']
+            yfr = self.rect.centery + offset[1]  + (f_yrandom-50)*(self.size[1]*0.36)/100
+            xfr = self.rect.centerx + offset[0] + (f_xrandom-50)*(self.size[0]*0.5)/100
             fruit.rect = fruit.surf.get_rect(center=(xfr,yfr))
 
             if len(self.FruitGroup.sprites()) == 0:
@@ -1673,11 +2003,11 @@ class Object(pg.sprite.Sprite):
                         else:
                             f_yrandom = random.randint(0,100)
                             f_xrandom = random.randint(0,100)
-                            yfr = self.rect.top*1.08 + f_yrandom*(self.rect.centery-self.rect.top*1.08)/100
-                            xfr = self.rect.centerx + 0.8*self.surf.get_width()*(f_xrandom-50)/100
+                            yfr = self.rect.centery + offset[1] + (f_yrandom-50)*(self.size[1]*0.36)/100
+                            xfr = self.rect.centerx + offset[0] + (f_xrandom-50)*(self.size[0]*0.5)/100
                             fruit.rect = fruit.surf.get_rect(center=(xfr,yfr))
                     
-                    if ncheck == NF or tries ==0 :
+                    if ncheck == NF or tries == 0 :
                         collide = False
                     
                     tries -= 1
@@ -1790,7 +2120,7 @@ class Catalogue(pg.sprite.Sprite):
 
         # Images
         for pos, unit in zip(self.page_pos, units_dct):
-            if unit in ['Archer','Villager']:
+            if unit in ['Archer','Villager','Knight']:
                 xoffset = -160
                 yoffset = 15
 
@@ -1967,21 +2297,26 @@ def main():
     # Create a custom event for adding a new enemy
     MOVETREES = pg.USEREVENT + 1
     pg.time.set_timer(MOVETREES, 5000)
-    CleanBattleField = pg.USEREVENT + 2
-    pg.time.set_timer(CleanBattleField, 45000)
-    HouseMovement = pg.USEREVENT + 3
+    CleanBattleField = pg.USEREVENT + 3
+    pg.time.set_timer(CleanBattleField, 15000)
+    HouseMovement = pg.USEREVENT + 4
     pg.time.set_timer(HouseMovement, 10000)
-    Grow_Fruit = pg.USEREVENT + 4
-    pg.time.set_timer(Grow_Fruit, 25000)
+    Grow_Fruit = pg.USEREVENT + 5
+    pg.time.set_timer(Grow_Fruit, 2500)
     
     
-
     # Add units to players
     Player_A.UnitsGroup.add(Unit('Archer',[300,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Knight',[500,800], Player_A.name))
+
+    
     Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
+    Player_B.UnitsGroup.add(Unit('Knight',[1300,820], Player_B.name))
+    
+
     # Objects
     ALL_OBJECTS.add(Object('Sky',[900,0]))
     ALL_OBJECTS.add(Object('Rock',[350,500]))
@@ -1992,6 +2327,11 @@ def main():
     ALL_OBJECTS.add(Object('Tree',[80,500]))
     ALL_OBJECTS.add(Object('Tree',[80,300]))
     ALL_OBJECTS.add(Object('Tree',[1500,150]))
+    ALL_OBJECTS.add(Object('Bush',[200,830]))
+    ALL_OBJECTS.add(Object('Bush',[430,740]))
+    ALL_OBJECTS.add(Object('Bush',[1230,810]))
+    ALL_OBJECTS.add(Object('Bush',[1400,220]))
+    
     
     # Houses
     Player_A.Home = Object('House',[120,700], Player_A.name)
@@ -2044,13 +2384,17 @@ def main():
                     num_sprites = len(Player_inturn.UnitsGroup.sprites())
                     if num_sprites>1:
                         SPRITES = Player_inturn.UnitsGroup.sprites()
-                        for k in range(0,num_sprites-1,2):
-                            if ALL_BOXES.has(SPRITES[k].ActionBar):
-                                k_old = k
-                                k_new = k+1
-                            elif ALL_BOXES.has(SPRITES[k+1].ActionBar):
-                                k_old = k+1
-                                k_new = k
+                        num_sprites_c = cycle(linspace(0,num_sprites-1,num_sprites,dtype=int))
+                        n_sprite = next(num_sprites_c)
+
+                        for _ in range(num_sprites):
+                            if ALL_BOXES.has(SPRITES[n_sprite].ActionBar):
+                                k_old = n_sprite
+                                n_sprite = next(num_sprites_c)
+                                k_new = n_sprite
+                            else:
+                                n_sprite = next(num_sprites_c)
+
                             
                         SPRITES[k_old].DisplayActionBar = False
                         SPRITES[k_old].ActionBar.kill()
@@ -2067,14 +2411,25 @@ def main():
             elif event.type == MOVETREES:
                 for obj in ALL_OBJECTS.sprites():
                     if obj.name == 'Tree':
-                        if not obj.run_animation:
-                            obj.run_animation = True
+                        coint = random.randint(0,10)
+                        if coin < 5:
+                            if not obj.run_animation:
+                                obj.run_animation = True
+                    elif obj.name == 'Bush':
+                        coin = random.randint(0,10)
+                        if coin < 4:
+                            if not obj.run_animation:
+                                obj.run_animation = True
 
             elif event.type == Grow_Fruit:
                 for obj in ALL_OBJECTS.sprites():
                     if obj.name == 'Tree':
-                        coin = random.randint(0,12)
-                        if coin < 2:
+                        coin = random.randint(0,100)
+                        if coin < 5:
+                            obj.grown_fruit()
+                    elif obj.name == 'Bush':
+                        coin = random.randint(0,10)
+                        if coin < 8:
                             obj.grown_fruit()
 
             elif event.type == HouseMovement:
@@ -2088,7 +2443,9 @@ def main():
             elif event.type == CleanBattleField:
                 for entity in ALL_OBJECTS:
                     if entity.name == 'Arrow':
-                        entity.kill()
+                        entity.time_on_ground += clock.get_time()
+                        if entity.time_on_ground >= entity.duration:
+                            entity.kill()
 
             elif event.type == MOUSEBUTTONDOWN:
                 if not WaitingEnd:
@@ -2133,7 +2490,6 @@ def main():
                                 ActionBars = False
 
 
-
         pressed_keys = pg.key.get_pressed()
         
         # Displaying Actions Bars or Info Bars
@@ -2167,7 +2523,7 @@ def main():
                             ActionBars = True
                             ALL_BOXES.add(Bar(entity, mode='info'))
     
-
+        # Animating Objects
         for obj in ALL_OBJECTS.sprites():
             if obj.run_animation:
                 if obj.name == 'Tree':
@@ -2182,30 +2538,9 @@ def main():
 
             # Deliver Resources
             if unit.IsWorking:
-
-                actions_left = Player_inturn.TotalActions - Player_inturn.NumberOfActions
-                if bool(actions_left - unit.HadWorked):
-                    worked_object = unit.WorkingObject.sprites()[0]
-                    Player_inturn.resources[worked_object.resource_name] += worked_object.resource_drain
-                    worked_object.resource -= worked_object.resource_drain
-                    unit.HadWorked += 1
-                    unit.resource -= unit.resource_drain
-                    worked_object.update()
-                    if unit.resource <= 0:
-                        unit.resource = 0
-                        unit.IsWorking = False
-                        unit.Talk('I need rest...')
-                        unit.rect_ind = 0
-                        unit.animation_ind = 0
-                        unit.ChangeSprite()
-
-                    if worked_object.resource <= 0:
-                        worked_object.kill()
-                        unit.IsWorking = False
-                        unit.Talk('This is over')
-                        unit.rect_ind = 0
-                        unit.animation_ind = 0
-                        unit.ChangeSprite()
+                ExtractingResources(Player_inturn, unit)
+            elif unit.IsGathering:
+                GatheringResources(Player_inturn, unit)
 
             if not ActionBars:
                 ALL_BOXES.empty()
@@ -2220,9 +2555,6 @@ def main():
                     sprite.animate(mode = 'Move')
                 elif sprite.IsWorking and not sprite.OnMoving:
                     sprite.animate(mode = 'Work')
-            elif type(sprite).__name__ == 'Weapon':
-                if sprite.run_animation:
-                    sprite.animate()
 
         if any(UnitOnAction_lst):
             UnitOnAction = True
@@ -2230,12 +2562,9 @@ def main():
             UnitOnAction = False
 
                     
-
         # Buying or Upgrading
         if Player_inturn.Home.IsBuying:
             Player_inturn, ActionBars = BuyingLoop(Player_inturn, ActionBars) 
-
-
 
         # Checking for the winner
         for i_p, player in enumerate(Players_list):
@@ -2244,7 +2573,6 @@ def main():
                     Logger.EndGame([Players_list[i_p].name + ' is the winner!!' , 4])
                 else:
                     Logger.EndGame([Players_list[i_p-1].name + ' is the winner!!' , 4])
-
                 
         if WaitingEnd and not UnitOnAction:
             Logger.info([Player_inturn.name + ' is done. Press Enter' , 4])
@@ -2254,36 +2582,14 @@ def main():
 
             # Resting the Units
             for unit in Player_inturn.UnitsGroup:
-
+                actions_saved = Player_inturn.NumberOfActions
+                
                 # Delivering Resources
                 if unit.IsWorking:
-                    actions_saved = Player_inturn.NumberOfActions
-                    if actions_saved >0:
-                        worked_object = unit.WorkingObject.sprites()[0]
+                    ExtractingResources(Player_inturn, unit, actions_saved)
+                elif unit.IsGathering:
+                    GatheringResources(Player_inturn, unit, actions_saved)
 
-                        for k in range(actions_saved):
-                            if unit.resource != 0:
-                                Player_inturn.resources[worked_object.resource_name] += worked_object.resource_drain
-                                worked_object.resource -= worked_object.resource_drain
-                                unit.HadWorked += 1
-                                unit.resource -= unit.resource_drain
-                                worked_object.update()
-
-                                if unit.resource <=0:
-                                    unit.resource = 0
-                                    unit.IsWorking = False
-                                    unit.Talk('I need rest...')
-                                    unit.rect_ind = 0
-                                    unit.animation_ind = 0
-                                    unit.ChangeSprite()       
-            
-                                if worked_object.resource <= 0:
-                                    worked_object.kill()
-                                    unit.IsWorking = False
-                                    unit.Talk('This is over')
-                                    unit.rect_ind = 0
-                                    unit.animation_ind = 0
-                                    unit.ChangeSprite()  
 
 
                 activities = unit.HadMoved + unit.HadAttacked + unit.HadWorked
@@ -2333,6 +2639,15 @@ def main():
                     SCREEN.blit(text_.surf, text_.rect)
             else:
                 entity.kill()
+
+        for weapon in ALL_OBJECTS:
+            if weapon.name == 'Arrow':
+                if weapon.damage_text:
+                    weapon.damage_duration += clock.get_time()
+                    if weapon.damage_duration > 500:
+                        weapon.damage_text.kill()
+                    else:
+                        SCREEN.blit(weapon.damage_text.surf, weapon.damage_text.rect)
 
 
         Logger.Print()

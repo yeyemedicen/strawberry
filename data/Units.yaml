@@ -18,7 +18,7 @@ Archer:
     actions: ['Move','Attack','Eat','Talk']
     full_hp: 60
     cost:
-      food: 2 #0
+      food: 30
       wood: 80
     resource_name: 'stamina'
     full_resource: 25
@@ -28,11 +28,11 @@ Archer:
     attack_types:
       Ranged:
         Shot:
-          damage: [7,12]
+          damage: [9,15]
           range: 180
           accuracy: 88
         Long-shot:
-          damage: [6,8]
+          damage: [7,12]
           range: 350
           accuracy: 65
   
@@ -46,17 +46,17 @@ Villager:
   gender: ['Male','Female']
 
   Image:
-    scale_factor: [0.3,0.3]
+    scale_factor: [0.3,0.34]
     number_of_sprites: 34
     RowColumn_tup: [8,5]
     movement_sprites: 9
     working_sprites: 8
 
   Parameters:
-    actions: ['Move','Work','Attack','Eat','Talk']
+    actions: ['Move','Work','Gather','Eat','Attack','Talk']
     full_hp: 45
     cost:
-      food: 6 #0
+      food: 60
       wood: 20
     resource_name: 'stamina'
     full_resource: 35
@@ -73,31 +73,33 @@ Villager:
 Knight:  
   name: Knight
   path: '/data/characters/Knight/'
-  types: ['01','02']
+  types: ['A','B']
 
   Image:
-    scale_factor: 0.8
-    number_of_sprites: 18
-    movement_sprites:
-      right: 9
-      left: 9
+    scale_factor: 0.35
+    number_of_sprites: 36
+    RowColumn_tup: [6,6]
+    movement_sprites: 9
+    attack_sprites: 9
+    
 
   Parameters:
+    actions: ['Move','Attack','Eat','Talk']
     full_hp: 80
     cost:
-      food: 20
+      food: 30
       rock: 60
     resource_name: 'stamina'
-    full_resource: 15
+    full_resource: 1500 # 15
     resource_drain: 4
-    mov_range: 100
-    speed: 2
+    mov_range: 120
+    speed: 1
     attack_types:
       Melee:
         Slash:
-          damage: [9,14]
-          range: 10
-          accuracy: 90
+          damage: [12,18]
+          range: 50
+          accuracy: 95
 
 Priest:
   name: Priest

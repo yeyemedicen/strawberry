@@ -21,6 +21,23 @@ Tree:
   Fruit:
     name: 'Apple'
     capacity: 4
+    offset: [0,-20]
+
+Bush:
+  name: 'Bush'
+  path: '/data/objects/Bush/Bush.png'
+  types: ['']
+  
+  Image:
+    scale_factor: 0.4
+    number_of_sprites: 7
+    RowColumn_tup: [3,3]
+    SpritesPerIter: 5
+  
+  Fruit:
+    name: 'Blueberry'
+    capacity: 6
+    offset: [0,5]
 
 Rock:
   name: 'rock'
@@ -65,6 +82,16 @@ House:
 Food:
   Apple:
     name: 'Apple'
-    path: '/data/objects/Food/apple.png'
+    path: '/data/objects/Food/Apple.png'
     scale_factor: 0.45
     hp_gain: [3,5]
+    number_of_sprites: 1
+    RC_tup: [1,1]
+  
+  Blueberry:
+    name: 'Blueberry'
+    path: '/data/objects/Food/Blueberry.png'
+    scale_factor: 0.4
+    number_of_sprites: 8
+    hp_gain: [2,4]
+    RC_tup: [3,3]
