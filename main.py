@@ -817,7 +817,6 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
                 Logger.info(['The target is too far away!' , 1], holdtime=2)
                 AttackingUnit['target'] = []
                 AttackingUnit['unit'] = []
-                
             elif msg == 'resource':
                 pg.mouse.set_cursor(pg.cursors.arrow)
                 unit.IsAttacking = False
@@ -984,10 +983,8 @@ class Unit(pg.sprite.Sprite):
                     'type': attack_type,
                     })
         
-        
         self.path_to_ss = main_dir + self.data['path'] + self.name + self.type + '_ss.png'
         self.sheet , self.rect_frames = ReadSpriteSheet(self.path_to_ss , self.RC_tup , self.number_of_sprites)
-
         # Sprite
         self.rect_ind = 0
         rect = pg.Rect(self.rect_frames[self.rect_ind])
@@ -1231,18 +1228,14 @@ class Unit(pg.sprite.Sprite):
             ranges.append(att['range'])
 
         distance = ((coords[0] - self.rect.centerx)**2 + (coords[1] - self.rect.centery)**2)**(0.5)
-
         # Failed by Range
         if distance > max(ranges):
             # attack longer than unit range!
             return False , 'range'
-        
         # Failed by resource
         if self.resource-self.resource_drain <= 0:
             return False , 'resource'
-        
         else:
-
             accuracy = random.randint(0,100)
             IsDone = True
             damage = self.attacks[0]['damage']
@@ -2309,7 +2302,7 @@ def main():
     Player_A.UnitsGroup.add(Unit('Archer',[300,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Knight',[500,800], Player_A.name))
-
+    Player_A.UnitsGroup.add(Unit('Wizard',[450,250], Player_A.name))
     
     Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))

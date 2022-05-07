@@ -99,7 +99,36 @@ Knight:
         Slash:
           damage: [12,18]
           range: 50
-          accuracy: 95
+          accuracy: 50 #95
+
+Wizard:
+  name: Wizard
+  path: '/data/characters/Wizard/'
+  types: ['A']
+
+  Image:
+    scale_factor: 0.32
+    number_of_sprites: 1
+    RowColumn_tup: [1,1]
+    movement_sprites: 0
+    attack_sprites: 0
+  Parameters:
+    actions: ['Move','Attack','Eat','Talk']
+    full_hp: 80
+    cost:
+      food: 1
+      rock: 1
+    resource_name: 'mana'
+    full_resource: 150
+    resource_drain: 5
+    mov_range: 100
+    speed: 1
+    attack_types:
+      Magic:
+        Slash:
+          damage: [12,18]
+          range: 50
+          accuracy: 50 #95
 
 Priest:
   name: Priest
