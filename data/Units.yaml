@@ -30,11 +30,11 @@ Archer:
         Shot:
           damage: [9,15]
           range: 180
-          accuracy: 88
+          accuracy: 100 #88
         Long-shot:
           damage: [7,12]
           range: 350
-          accuracy: 65
+          accuracy: 100 #65
   
   Weapon:
     type: 'Arrow'
@@ -98,19 +98,19 @@ Knight:
       Melee:
         Slash:
           damage: [12,18]
-          range: 50
-          accuracy: 50 #95
+          range: 80
+          accuracy: 90 #95
 
 Wizard:
   name: Wizard
   path: '/data/characters/Wizard/'
-  types: ['A']
+  types: ['A','B']
 
   Image:
     scale_factor: 0.32
-    number_of_sprites: 1
-    RowColumn_tup: [1,1]
-    movement_sprites: 0
+    number_of_sprites: 18
+    RowColumn_tup: [6,3]
+    movement_sprites: 9
     attack_sprites: 0
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
@@ -121,7 +121,7 @@ Wizard:
     resource_name: 'mana'
     full_resource: 150
     resource_drain: 5
-    mov_range: 100
+    mov_range: 140
     speed: 1
     attack_types:
       Magic:
@@ -133,34 +133,29 @@ Wizard:
 Priest:
   name: Priest
   path: '/data/characters/Priest/'
-  types: ['01','02']
+  types: ['A']
 
   Image:
-    scale_factor: 0.8
-    number_of_sprites: 18
-    movement_sprites:
-      right: 9
-      left: 9
+    scale_factor: 0.37
+    number_of_sprites: 1
+    RowColumn_tup: [1,1]
+    movement_sprites: 0
+    attack_sprites: 0
 
   Parameters:
-    full_hp: 50
+    actions: ['Move','Attack','Eat','Talk']
+    full_hp: 80
     cost:
-      food: 50
-      wood: 50
-      rock: 50
+      food: 1
+      rock: 1
     resource_name: 'faith'
-    full_resource: 15
+    full_resource: 150
     resource_drain: 5
-    mov_range: 80
-    speed: 2
+    mov_range: 100
+    speed: 1
     attack_types:
-      Melee:
-        Smite:
-          damage: [5,9]
-          range: 10
-          accuracy: 80
-      Faith:
-        Heal:
-          heal: [8,15]
-          range: 200
-          accuracy: 60
+      Magic:
+        Slash:
+          damage: [12,18]
+          range: 50
+          accuracy: 50

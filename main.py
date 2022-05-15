@@ -793,51 +793,58 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
         AttackingUnit['target'] = []
 
     if AttackingUnit['target']:
-        # the unit will try to attack
-        IsAttack , msg = unit.Attack(AttackingUnit['target'],AttackingUnit['unit'])
-        if IsAttack:
-            unit.IsAttacking = False
-            unit.IsWorking = False
-            Player.NumberOfActions -= 1
-            Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
-
-            if Player.NumberOfActions == 0:
-                WaitingEnd = True
-                        
-            unit.HadAttacked += 1
-            unit.DisplayActionBar = False
-            ActionBars = False
-            unit.action_updown = [0,0]
-            pg.mouse.set_cursor(pg.cursors.arrow)
-            AttackingUnit['on'] = False
+        
+        if AttackingUnit['unit'] == unit:
+            # prevent self-attack
+            Logger.info(['Cannot attack myself!' , 1], holdtime=2)
             AttackingUnit['target'] = []
             AttackingUnit['unit'] = []
         else:
-            if msg == 'range':
-                Logger.info(['The target is too far away!' , 1], holdtime=2)
-                AttackingUnit['target'] = []
-                AttackingUnit['unit'] = []
-            elif msg == 'resource':
-                pg.mouse.set_cursor(pg.cursors.arrow)
+            # the unit will try to attack
+            IsAttack , msg = unit.Attack(AttackingUnit['target'],AttackingUnit['unit'])
+            if IsAttack:
                 unit.IsAttacking = False
-                Logger.info(['I am tired ... need some rest! ' , 1], holdtime = 2)
-                ActionBars = False
-                unit.action_updown = [0,0]
-                AttackingUnit['on'] = False
-                AttackingUnit['target'] = []
-            elif msg == 'accuracy':
-                pg.mouse.set_cursor(pg.cursors.arrow)
+                unit.IsWorking = False
                 Player.NumberOfActions -= 1
                 Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
+
                 if Player.NumberOfActions == 0:
                     WaitingEnd = True
-                unit.HadAttacked = True
-                unit.IsAttacking = False
-                Logger.info(['The attack failed... ' , 1], holdtime = 2)
+                            
+                unit.HadAttacked += 1
+                unit.DisplayActionBar = False
                 ActionBars = False
                 unit.action_updown = [0,0]
+                pg.mouse.set_cursor(pg.cursors.arrow)
                 AttackingUnit['on'] = False
                 AttackingUnit['target'] = []
+                AttackingUnit['unit'] = []
+            else:
+                if msg == 'range':
+                    Logger.info(['The target is too far away!' , 1], holdtime=2)
+                    AttackingUnit['target'] = []
+                    AttackingUnit['unit'] = []
+                elif msg == 'resource':
+                    pg.mouse.set_cursor(pg.cursors.arrow)
+                    unit.IsAttacking = False
+                    Logger.info(['I am tired ... need some rest! ' , 1], holdtime = 2)
+                    ActionBars = False
+                    unit.action_updown = [0,0]
+                    AttackingUnit['on'] = False
+                    AttackingUnit['target'] = []
+                elif msg == 'accuracy':
+                    pg.mouse.set_cursor(pg.cursors.arrow)
+                    Player.NumberOfActions -= 1
+                    Player.diamonds.sprites()[Player.NumberOfActions].surf = Player.diamond0_img
+                    if Player.NumberOfActions == 0:
+                        WaitingEnd = True
+                    unit.HadAttacked = True
+                    unit.IsAttacking = False
+                    Logger.info(['The attack failed... ' , 1], holdtime = 2)
+                    ActionBars = False
+                    unit.action_updown = [0,0]
+                    AttackingUnit['on'] = False
+                    AttackingUnit['target'] = []
                     
 
         
@@ -1030,7 +1037,14 @@ class Unit(pg.sprite.Sprite):
         self.HadMoved = 0
         self.HadAttacked = 0
         self.HadWorked = 0
- 
+
+        # Damage and Healing text
+        self.weapon = None
+        self.damage_text = None
+        self.healing_text = None
+        self.damage_duration = 0
+        self.healing_duration = 0
+        
     def assign_action(self, action):
 
         self.IsMoving = False
@@ -1199,8 +1213,9 @@ class Unit(pg.sprite.Sprite):
                 pg.display.flip()
                 clock.tick(Dt)
 
-
-            ALL_OBJECTS.add(Arrow)                        
+            # initializing the arrow
+            ALL_OBJECTS.add(Arrow)
+            self.weapon = Arrow                      
             self.resource -= self.resource_drain
             # Restoring unit frame
             self.rect_ind = initial_rect_ind
@@ -1219,6 +1234,16 @@ class Unit(pg.sprite.Sprite):
                 return False, 'accuracy'
             else:
                 Arrow.msg = [damage_value,critical]
+                
+                self.damage_text = DisplayDamage(target_unit.rect.midtop,[damage_value,critical])
+                target_unit.hp -= damage_value
+                if target_unit.hp < 0:
+                    target_unit.Died()
+
+                if critical == 'critical':
+                    Logger.info(['Critical hit!', 1], holdtime = 2)
+                
+                
                 return True, [damage_value,critical]
 
     def Melee_Attack(self, coords, target_unit):
@@ -1293,6 +1318,12 @@ class Unit(pg.sprite.Sprite):
             if not IsDone:
                 return False, 'accuracy'
             else:
+                self.damage_text = DisplayDamage(target_unit.rect.midtop,[damage_value,critical])
+                # inflicting damage into the target
+                target_unit.hp -= damage_value
+                if target_unit.hp < 0:
+                    target_unit.Died()
+
                 return True, [damage_value,critical]
 
     def Eat(self):
@@ -1326,14 +1357,17 @@ class Unit(pg.sprite.Sprite):
         food = Fruits_nearby[mean_hp_gains.index(max(mean_hp_gains))]
         coords = [food.rect.centerx,food.rect.centery]
         move, msg = self.Move(coords, forced=True)
-        
+        # FIXME: i need some structure to wait till the movement is finished!
+        #self.IsMoving = True
+
         # healing
         hp_gain = random.randint(food.hp_gain[0],food.hp_gain[1])
         self.hp += hp_gain
         if self.hp > self.full_hp:
             self.hp = self.full_hp
         
-        DisplayDamage([self.rect.centerx,self.rect.centery],[-hp_gain,msg])
+
+        self.healing_text = DisplayDamage([self.rect.centerx,self.rect.centery],[-hp_gain,msg])
         self.Talk('yummy')
         food.kill()
 
@@ -1575,14 +1609,14 @@ class Weapon(pg.sprite.Sprite):
             # Ending the movement
             run_animation = False
             
-            if self.TargetUnit and self.IsShoted:
-                self.damage_text = DisplayDamage(self.TargetUnit.rect.midtop,self.msg)
-                self.TargetUnit.hp -= self.msg[0]
-                if self.TargetUnit.hp < 0:
-                    self.TargetUnit.Died()
-
-                if self.msg[1] == 'critical':
-                    Logger.info(['Critical hit!', 1], holdtime = 2)
+            #if self.TargetUnit and self.IsShoted:
+            #    self.damage_text = DisplayDamage(self.TargetUnit.rect.midtop,self.msg)
+            #    self.TargetUnit.hp -= self.msg[0]
+            #    if self.TargetUnit.hp < 0:
+            #        self.TargetUnit.Died()
+            #
+            #    if self.msg[1] == 'critical':
+            #        Logger.info(['Critical hit!', 1], holdtime = 2)
 
 
             if abs(arctan(-self.Trajectory['dtraj'][self.animation_ind-1])*180/pi) < 15:
@@ -2301,14 +2335,15 @@ def main():
     # Add units to players
     Player_A.UnitsGroup.add(Unit('Archer',[300,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
-    Player_A.UnitsGroup.add(Unit('Knight',[500,800], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Knight',[230,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Wizard',[450,250], Player_A.name))
-    
+    Player_A.UnitsGroup.add(Unit('Priest',[650,250], Player_A.name))
+
     Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     Player_B.UnitsGroup.add(Unit('Knight',[1300,820], Player_B.name))
-    
+    Player_B.UnitsGroup.add(Unit('Wizard',[1000,420], Player_B.name))
 
     # Objects
     ALL_OBJECTS.add(Object('Sky',[900,0]))
@@ -2633,14 +2668,32 @@ def main():
             else:
                 entity.kill()
 
-        for weapon in ALL_OBJECTS:
-            if weapon.name == 'Arrow':
-                if weapon.damage_text:
-                    weapon.damage_duration += clock.get_time()
-                    if weapon.damage_duration > 500:
-                        weapon.damage_text.kill()
+        for unit in ALL_SPRITES:
+            if type(unit).__name__ == 'Unit':
+                # showing damage
+                if unit.damage_text and not unit.IsAttacking:
+                    display = True
+                    if unit.weapon and unit.weapon.run_animation:
+                        display = False
+                    if display:
+                        unit.damage_duration += clock.get_time()
+                        if unit.damage_duration > 500:
+                            unit.damage_text.kill()
+                            unit.damage_text = None
+                            unit.damage_duration = 0
+                        else:
+                            SCREEN.blit(unit.damage_text.surf, unit.damage_text.rect)
+                # showing healing
+                if unit.healing_text and not unit.IsEating:
+                    unit.healing_duration += clock.get_time()
+                    if unit.healing_duration > 500:
+                        unit.healing_text.kill()
+                        unit.healing_text = None
+                        unit.healing_duration = 0
                     else:
-                        SCREEN.blit(weapon.damage_text.surf, weapon.damage_text.rect)
+                        SCREEN.blit(unit.healing_text.surf, unit.healing_text.rect)
+
+            
 
 
         Logger.Print()
