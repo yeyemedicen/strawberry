@@ -107,11 +107,11 @@ Wizard:
   types: ['A','B']
 
   Image:
-    scale_factor: 0.33
-    number_of_sprites: 38
-    RowColumn_tup: [8,5]
+    scale_factor: 0.34
+    number_of_sprites: 44
+    RowColumn_tup: [8,6]
     movement_sprites: 9
-    attack_sprites: 10
+    attack_sprites: 13
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
     full_hp: 80
@@ -127,7 +127,7 @@ Wizard:
       Ranged:
         Slash:
           damage: [12,18]
-          range: 350
+          range: 500
           accuracy: 50 #95
 
 Priest:
