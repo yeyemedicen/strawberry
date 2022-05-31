@@ -3,11 +3,12 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from itertools import cycle
 import pygame as pg
 import random
-from numpy import linspace, gradient, arctan, pi
+from numpy import linspace, gradient, arctan, pi, RankWarning, poly1d, polyfit, exp, sin, random
 from scipy.interpolate import interp1d
 import pygame.freetype
 import ruamel.yaml as yaml
 import operator
+import warnings
 
 #
 # Strawberry Battle Field Game
@@ -44,41 +45,79 @@ def General_Blit():
 
     for entity in ALL_SPRITES:
         SCREEN.blit(entity.surf, entity.rect)
+    
+    for entity in ALL_OBJECTS:
+        if entity.name in ['Arrow','MagicBolt']:
+            SCREEN.blit(entity.surf, entity.rect)
 
-def CreateTrajectory(coordsA,coordsB, get_gradient = False):
+
+def CreateTrajectory(coordsA,coordsB, projectile_name, get_gradient = False):
     ''' 
-        Arrow trajectory from A to B
+        Projectile trajectory from A to B
     '''
 
     A0x = min([coordsB[0], coordsA[0]])
     A0y = min([coordsB[1], coordsA[1]])
     B0x = abs(coordsB[0] - coordsA[0])
     B0y = abs(coordsB[1] - coordsA[1])
-    alpha = [0.15,0.65]
-    beta = [0.5,-0.1]
 
-    if coordsB[1]>coordsA[1]:
-        beta = [-0.2,-0.1]
-
-    if coordsB[0]<coordsA[0]:
+    if projectile_name == "Arrow":
+        alpha = [0.15,0.65]
+        beta = [0.5,-0.1]
         if coordsB[1]>coordsA[1]:
-            beta = [-0.1,-0.85]
-        else:
-            beta = [-0.1,0.1]
+            beta = [-0.2,-0.1]
+        if coordsB[0]<coordsA[0]:
+            if coordsB[1]>coordsA[1]:
+                beta = [-0.1,-0.85]
+            else:
+                beta = [-0.1,0.1]
 
-    x_aux1 = A0x + alpha[0]*B0x
-    x_aux2 = A0x + alpha[1]*B0x
-    y_aux1 = A0y + beta[0]*B0y
-    y_aux2 = A0y + beta[1]*B0y
-    xdata = [coordsA[0], x_aux1, x_aux2, coordsB[0]]
-    ydata = [coordsA[1], y_aux1, y_aux2, coordsB[1]]
-    xtraj = linspace(min([coordsB[0], coordsA[0]]),max([coordsB[0], coordsA[0]]),100)
-    f_cont = interp1d(xdata,ydata,kind='cubic')
+        x_aux1 = A0x + alpha[0]*B0x
+        x_aux2 = A0x + alpha[1]*B0x
+        y_aux1 = A0y + beta[0]*B0y
+        y_aux2 = A0y + beta[1]*B0y
+        xdata = [coordsA[0], x_aux1, x_aux2, coordsB[0]]
+        ydata = [coordsA[1], y_aux1, y_aux2, coordsB[1]]
+        xtraj = linspace(min([coordsB[0], coordsA[0]]),max([coordsB[0], coordsA[0]]),100)
+        f_cont = interp1d(xdata,ydata,kind='cubic')
 
-    if coordsB[0]<coordsA[0]:
-        xtraj = xtraj[::-1]
+        if coordsB[0]<coordsA[0]:
+            xtraj = xtraj[::-1]
 
-    ytraj = f_cont(xtraj)
+        ytraj = f_cont(xtraj)
+
+    elif projectile_name == 'MagicBolt':
+        Np = 4
+        ExtraPoints = {}
+        Dx = coordsB[0] - coordsA[0]
+        Dy = coordsB[1] - coordsA[1]
+
+        for k in range(Np):
+            yrnd = random.rand()
+            xk = coordsA[0] + Dx*(k+1)/(Np+1)
+            yk = coordsA[1] + Dy*yrnd
+            ExtraPoints[k] = [xk,yk]
+            
+        xtraj = linspace(min([coordsB[0], coordsA[0]]),max([coordsB[0], coordsA[0]]),80)
+        xdata = [coordsA[0],coordsB[0]]
+        ydata = [coordsA[1],coordsB[1]]
+
+        for _,elem in ExtraPoints.items():
+            xdata.append(elem[0])
+            ydata.append(elem[1])
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RankWarning)
+            f = poly1d(polyfit(xdata,ydata,4))
+
+        frac = random.randint(8)
+        amp = random.randint(150)
+        beta = random.rand()*10
+        
+        if coordsB[0]<coordsA[0]:
+            xtraj = xtraj[::-1]
+
+        ytraj = f(xtraj) #+ amp*sin((xtraj-coordsA[0])*frac*pi/Dx)*exp(-beta*(xtraj-coordsA[0]))
 
     if get_gradient:
         dx = abs(xtraj[1] - xtraj[0])
@@ -1126,11 +1165,13 @@ class Unit(pg.sprite.Sprite):
 
     def Attack(self,coords,target_unit):
         if 'Ranged' in self.attacks_types:
-            return self.Range_Attack(coords, target_unit)
+            return self.Range_Attack(coords, target_unit, 'Arrow')
         elif 'Melee' in self.attacks_types:
             return self.Melee_Attack(coords, target_unit)
+        if 'Magic' in self.attacks_types:
+            return self.Range_Attack(coords, target_unit, 'MagicBolt')
 
-    def Range_Attack(self, coords, target_unit):
+    def Range_Attack(self, coords, target_unit, projectile_name):
 
         ranges = []
         for att in self.attacks:
@@ -1151,7 +1192,7 @@ class Unit(pg.sprite.Sprite):
 
             accuracy = random.randint(0,100)
             # Creating the arrow
-            Arrow  = Weapon('Arrow', self.pos, coords)
+            Projectile  = Weapon(projectile_name, self.pos, coords)
             IsShoted = True
 
 
@@ -1164,16 +1205,20 @@ class Unit(pg.sprite.Sprite):
                 IsShoted = False
 
             if not IsShoted:
-                #Failed coords
-                nexp = random.randint(0,10)
-                x_rand = coords[0] + (-1)**nexp*random.randint(int(0.1*coords[0]),int(0.2*coords[0]))
-                y_rand = coords[1] + (-1)**nexp*random.randint(int(0.1*coords[1]),int(0.2*coords[1]))
-                coords = [x_rand,y_rand]
+                if projectile_name == 'Arrow':
+                    #Failed coords
+                    nexp = random.randint(0,10)
+                    x_rand = coords[0] + (-1)**nexp*random.randint(int(0.1*coords[0]),int(0.2*coords[0]))
+                    y_rand = coords[1] + (-1)**nexp*random.randint(int(0.1*coords[1]),int(0.2*coords[1]))
+                    coords = [x_rand,y_rand]
+                elif projectile_name == 'MagicBolt':
+                    Projectile.kill()
+                    return False, 'accuracy'
 
             damage_value, critical = DamageCalculation(self.name, damage)
-            ytraj , xtraj, dtraj = CreateTrajectory(Arrow.pos,coords, get_gradient=True)
+            ytraj , xtraj, dtraj = CreateTrajectory(Projectile.pos,coords, projectile_name, get_gradient=True)
 
-            d_x = coords[0] - Arrow.pos[0]
+            d_x = coords[0] - Projectile.pos[0]
 
             if d_x<0:
                 if self.rect_ind == 0:
@@ -1214,26 +1259,34 @@ class Unit(pg.sprite.Sprite):
                 clock.tick(Dt)
 
             # initializing the arrow
-            ALL_OBJECTS.add(Arrow)
-            self.weapon = Arrow                      
+            ALL_OBJECTS.add(Projectile)
+            self.weapon = Projectile                      
             self.resource -= self.resource_drain
             # Restoring unit frame
             self.rect_ind = initial_rect_ind
             self.ChangeSprite()
 
-            Arrow.Trajectory['xtraj'] = xtraj
-            Arrow.Trajectory['ytraj'] = ytraj
-            Arrow.Trajectory['dtraj'] = dtraj
-            Arrow.IsShoted = IsShoted
-            Arrow.run_animation = True
+            Projectile.Trajectory['xtraj'] = xtraj
+            Projectile.Trajectory['ytraj'] = ytraj
+            Projectile.Trajectory['dtraj'] = dtraj
+            Projectile.IsShoted = IsShoted
+            Projectile.run_animation = True
+
+            # setting the projectile in the initial position
+            theta = arctan(-dtraj[0])*180/pi
+            Projectile.rect_ind = int((theta-Projectile.angle0)*Projectile.number_of_sprites/Projectile.angle_range)
+            Projectile.rect.center = (xtraj[0] + Projectile.traj_offset[0], \
+                ytraj[0] + Projectile.traj_offset[1])
+            Projectile.ChangeSprite()
+
             if target_unit:
-                Arrow.TargetUnit = target_unit
+                Projectile.TargetUnit = target_unit
 
 
             if not IsShoted:
                 return False, 'accuracy'
             else:
-                Arrow.msg = [damage_value,critical]
+                Projectile.msg = [damage_value,critical]
                 
                 self.damage_text = DisplayDamage(target_unit.rect.midtop,[damage_value,critical])
                 target_unit.hp -= damage_value
@@ -1554,7 +1607,9 @@ class Weapon(pg.sprite.Sprite):
         if name == 'Arrow':
             self.name = 'Arrow'
             self.speed = 10
+            self.SPI = 2
             self.offset = [0,-8]
+            self.traj_offset = [0,0]
             self.target = coords
             self.pos = [pos[0]+self.offset[0], pos[1]+self.offset[1]]
             self.RC_tup = [6,7]
@@ -1568,7 +1623,7 @@ class Weapon(pg.sprite.Sprite):
                              self.RC_tup , self.number_of_sprites)
                 
 
-            self.scale_factor = 0.8
+            self.scale_factor = 0.9
             self.angle0 = -90
             self.angle_range = 180
             self.rect_ind = 0
@@ -1579,17 +1634,53 @@ class Weapon(pg.sprite.Sprite):
             self.rect = surf.get_rect(center=(self.pos[0],self.pos[1]))
             size = surf.get_size()
             self.surf = pg.transform.scale(surf, (int(size[0]*self.scale_factor), int(size[1]*self.scale_factor)))
-            self.size = surf.get_size()
+            self.size = self.surf.get_size()
             self.Trajectory = {'xtraj': None , 'ytraj': None, 'dtraj': None}
             self.duration = 90
             self.time_on_ground = 0
             self.msg = None
             self.TargetUnit = None
         
+        elif name == 'MagicBolt':
+            self.name = 'MagicBolt'
+            self.speed = 40
+            self.SPI = 2
+            self.offset = [40,0]
+            self.traj_offset = [60,60]
+            self.target = coords
+            self.pos = [pos[0]+self.offset[0], pos[1]+self.offset[1]]
+            self.RC_tup = [6,7]
+            self.number_of_sprites = 41
+
+            if (coords[0] - self.pos[0])>0:
+                self.sheet , self.rect_frames = ReadSpriteSheet(main_dir + '/data/characters/Wizard/' + name + '01_ss.png' , 
+                             self.RC_tup , self.number_of_sprites)
+            else:
+                self.sheet , self.rect_frames = ReadSpriteSheet(main_dir + '/data/characters/Wizard/' + name + '02_ss.png' , 
+                             self.RC_tup , self.number_of_sprites)
+                
+
+            self.scale_factor = 0.3
+            self.angle0 = -90
+            self.angle_range = 180
+            self.rect_ind = 0
+            rect = pg.Rect(self.rect_frames[self.rect_ind])
+            self.rect_size0 = rect.size
+            surf = pg.Surface(self.rect_size0, pg.SRCALPHA)
+            surf.blit(self.sheet, (0, 0), rect)
+            self.rect = surf.get_rect(center=(self.pos[0],self.pos[1]))
+            size = surf.get_size()
+            self.surf = pg.transform.scale(surf, (int(size[0]*self.scale_factor), int(size[1]*self.scale_factor)))
+            self.size = self.surf.get_size()
+            self.Trajectory = {'xtraj': None , 'ytraj': None, 'dtraj': None}
+            self.msg = None
+            self.TargetUnit = None
+            self.duration = 1
+            self.time_on_ground = 0
+        
 
         self.damage_text = None
         self.damage_duration = 0
-        self.SPI = 2
         self.animation_ind = 0
         self.HasBar = False
         self.run_animation = False
@@ -1609,44 +1700,36 @@ class Weapon(pg.sprite.Sprite):
             # Ending the movement
             run_animation = False
             
-            #if self.TargetUnit and self.IsShoted:
-            #    self.damage_text = DisplayDamage(self.TargetUnit.rect.midtop,self.msg)
-            #    self.TargetUnit.hp -= self.msg[0]
-            #    if self.TargetUnit.hp < 0:
-            #        self.TargetUnit.Died()
-            #
-            #    if self.msg[1] == 'critical':
-            #        Logger.info(['Critical hit!', 1], holdtime = 2)
-
-
-            if abs(arctan(-self.Trajectory['dtraj'][self.animation_ind-1])*180/pi) < 15:
-                # Keeping the arrow vertical when landed it
-                self.rect_ind = random.randint(0,5)
-                self.ChangeSprite()
+            if self.name == 'Arrow':
+                if abs(arctan(-self.Trajectory['dtraj'][self.animation_ind-1])*180/pi) < 15:
+                    # Keeping the arrow vertical when landed it
+                    self.rect_ind = random.randint(0,5)
+                    self.ChangeSprite()
 
             self.Trajectory = {'xtraj': None , 'ytraj': None, 'dtraj': None}     
             self.animation_ind = 0
             self.run_animation = False
             self.time_on_ground = clock.get_time()
-            self.damage_duration = self.time_on_ground 
+            self.damage_duration = self.time_on_ground
+            
 
         if run_animation:
 
             xtraj = self.Trajectory['xtraj']
             ytraj = self.Trajectory['ytraj']
             dtraj = self.Trajectory['dtraj']
+            
 
             if self.animation_ind%self.SPI == 0:
-
                 theta = arctan(-dtraj[self.animation_ind])*180/pi
                 if not self.IsShoted:
                     theta += random.randint(-15,15)
                     if abs(int(theta-self.angle0)) >= 180:
                         theta = arctan(-dtraj[self.animation_ind])*180/pi
 
-
                 self.rect_ind = int((theta-self.angle0)*self.number_of_sprites/self.angle_range)
-                self.rect.center = (xtraj[self.animation_ind], ytraj[self.animation_ind])
+                self.rect.center = (xtraj[self.animation_ind] + self.traj_offset[0], \
+                    ytraj[self.animation_ind] + self.traj_offset[1])
                 self.ChangeSprite()
             
 
@@ -2347,11 +2430,12 @@ def main():
 
     # Objects
     ALL_OBJECTS.add(Object('Sky',[900,0]))
+    ALL_OBJECTS.add(Object('River',[800,440]))
+
     ALL_OBJECTS.add(Object('Rock',[350,500]))
     ALL_OBJECTS.add(Object('Rock',[900,700]))
     ALL_OBJECTS.add(Object('Rock',[950,720]))
     ALL_OBJECTS.add(Object('Rock',[1250,172]))
-    ALL_OBJECTS.add(Object('Tree',[850,400]))
     ALL_OBJECTS.add(Object('Tree',[80,500]))
     ALL_OBJECTS.add(Object('Tree',[80,300]))
     ALL_OBJECTS.add(Object('Tree',[1500,150]))
@@ -2470,7 +2554,7 @@ def main():
 
             elif event.type == CleanBattleField:
                 for entity in ALL_OBJECTS:
-                    if entity.name == 'Arrow':
+                    if entity.name  == 'Arrow':
                         entity.time_on_ground += clock.get_time()
                         if entity.time_on_ground >= entity.duration:
                             entity.kill()
@@ -2681,6 +2765,9 @@ def main():
                             unit.damage_text.kill()
                             unit.damage_text = None
                             unit.damage_duration = 0
+                            if unit.weapon:
+                                if unit.weapon.name == 'MagicBolt':
+                                    unit.weapon.kill()
                         else:
                             SCREEN.blit(unit.damage_text.surf, unit.damage_text.rect)
                 # showing healing

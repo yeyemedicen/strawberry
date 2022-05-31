@@ -124,11 +124,11 @@ Wizard:
     mov_range: 140
     speed: 1
     attack_types:
-      Ranged:
-        Slash:
+      Magic:
+        MagicBolt:
           damage: [12,18]
-          range: 500
-          accuracy: 50 #95
+          range: 300
+          accuracy: 80
 
 Priest:
   name: Priest

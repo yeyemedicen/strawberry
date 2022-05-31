@@ -66,6 +66,17 @@ Sky:
     RowColumn_tup: [1,1]
     SpritesPerIter: 1
 
+River:
+  name: 'river'
+  path: '/data/objects/River/River.png'
+  types: ['']
+
+  Image:
+    scale_factor: 0.8
+    number_of_sprites: 1
+    RowColumn_tup: [1,1]
+    SpritesPerIter: 1
+
 House:
   name: 'House'
   path: '/data/objects/House/House{i}_ss.png'
