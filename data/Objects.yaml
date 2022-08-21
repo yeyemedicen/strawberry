@@ -73,9 +73,9 @@ River:
 
   Image:
     scale_factor: 0.8
-    number_of_sprites: 1
-    RowColumn_tup: [1,1]
-    SpritesPerIter: 1
+    number_of_sprites: 8
+    RowColumn_tup: [8,1]
+    SpritesPerIter: 10
 
 House:
   name: 'House'

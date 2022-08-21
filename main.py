@@ -2413,6 +2413,8 @@ def main():
     pg.time.set_timer(HouseMovement, 10000)
     Grow_Fruit = pg.USEREVENT + 5
     pg.time.set_timer(Grow_Fruit, 2500)
+    RiverMovement = pg.USEREVENT + 6
+    pg.time.set_timer(RiverMovement, 2000)
     
     
     # Add units to players
@@ -2420,21 +2422,21 @@ def main():
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Knight',[230,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Wizard',[450,250], Player_A.name))
-    Player_A.UnitsGroup.add(Unit('Priest',[650,250], Player_A.name))
+    #Player_A.UnitsGroup.add(Unit('Priest',[650,250], Player_A.name))
 
     Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))
     Player_B.UnitsGroup.add(Unit('Archer',[1600,250], Player_B.name))
     
     Player_B.UnitsGroup.add(Unit('Knight',[1300,820], Player_B.name))
-    Player_B.UnitsGroup.add(Unit('Wizard',[1000,420], Player_B.name))
+    #Player_B.UnitsGroup.add(Unit('Wizard',[1000,420], Player_B.name))
 
     # Objects
     ALL_OBJECTS.add(Object('Sky',[900,0]))
-    ALL_OBJECTS.add(Object('River',[800,440]))
+    ALL_OBJECTS.add(Object('River',[830,520]))
 
     ALL_OBJECTS.add(Object('Rock',[350,500]))
-    ALL_OBJECTS.add(Object('Rock',[900,700]))
-    ALL_OBJECTS.add(Object('Rock',[950,720]))
+    ALL_OBJECTS.add(Object('Rock',[930,700]))
+    ALL_OBJECTS.add(Object('Rock',[990,720]))
     ALL_OBJECTS.add(Object('Rock',[1250,172]))
     ALL_OBJECTS.add(Object('Tree',[80,500]))
     ALL_OBJECTS.add(Object('Tree',[80,300]))
@@ -2551,6 +2553,11 @@ def main():
                             Coin = random.randint(0,1)
                             if Coin:
                                 obj.run_animation = True
+
+            elif event.type == RiverMovement:
+                for obj in ALL_OBJECTS.sprites():
+                    if obj.name == 'River':
+                        obj.run_animation = True
 
             elif event.type == CleanBattleField:
                 for entity in ALL_OBJECTS:
