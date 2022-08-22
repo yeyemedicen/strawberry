@@ -38,18 +38,21 @@ from pygame.locals import (
 
 def General_Blit():
     for entity in ALL_OBJECTS:
+        #if entity.name == 'River':
+        #    pg.draw.rect(SCREEN,color=(250,102,102),rect=entity.rect)
         SCREEN.blit(entity.surf, entity.rect)
         if 'FruitGroup' in vars(entity):
             for fruit_ in entity.FruitGroup:
                 SCREEN.blit(fruit_.surf, fruit_.rect)
 
     for entity in ALL_SPRITES:
+        #if entity.name == 'Knight':
+        #    pg.draw.rect(SCREEN,color=(220,202,202),rect=entity.feet.rect)
         SCREEN.blit(entity.surf, entity.rect)
     
     for entity in ALL_OBJECTS:
         if entity.name in ['Arrow','MagicBolt']:
             SCREEN.blit(entity.surf, entity.rect)
-
 
 def CreateTrajectory(coordsA,coordsB, projectile_name, get_gradient = False):
     ''' 
@@ -218,7 +221,7 @@ def DisplayDamage(coords,damage):
 
 def DisplayInfo(unit, SCREEN, number_images, info_mode=False):
     # Canvas
-
+    # TODO: delete
     if info_mode:
         name = 'info01_ss'
         info_sheet , rect_frames = ReadSpriteSheet(main_dir + '/data/objects/info/' + name + '.png' , [2,3] , number_images)
@@ -671,7 +674,11 @@ def MovingLoop(Player, unit, MovingUnit, ActionBars, WaitingEnd, pressed_keys):
                 Logger.info(['Movement longer than Unit\'s range ' , 1], holdtime = 2)
                 #unit.Talk('too far!')
                 MovingUnit['coords'] = []
-                
+
+            elif msg == 'collision':
+                Logger.info(['Cannot move there! ' , 1], holdtime = 2)
+                MovingUnit['coords'] = []
+
             elif msg == 'resource':
                 pg.mouse.set_cursor(pg.cursors.arrow)
                 unit.IsMoving = False
@@ -962,13 +969,13 @@ class Unit(pg.sprite.Sprite):
         self.name = name
         self.Player_name = player_name
         self.pos = pos
+        self.offsets = self.data['Image']['offsets']
 
         if 'A' in player_name:
             self.type = self.data['types'][0]
         else:
             self.type = self.data['types'][1]
 
-        
         # Image
         self.scale_factor = self.data['Image']['scale_factor']
 
@@ -980,7 +987,6 @@ class Unit(pg.sprite.Sprite):
             else:
                 self.type += 'F'
                 self.scale_factor = self.scale_factor[1]
-        
         
         self.number_of_sprites = self.data['Image']['number_of_sprites']
         self.movement_sprites = [self.data['Image']['movement_sprites'], self.data['Image']['movement_sprites']]
@@ -1077,6 +1083,16 @@ class Unit(pg.sprite.Sprite):
         self.HadAttacked = 0
         self.HadWorked = 0
 
+        # Feet
+        self.feet = pg.sprite.Sprite()
+        if 'feet' in self.data['Image']['offsets']:
+            [a,b,sa,sb,ss] = self.data['Image']['offsets']['feet']
+        else:
+            [a,b,sa,sb,ss] = [10,10,10,10,10]
+        self.feet.rect = pg.Rect((self.rect.centerx + a,self.rect.centery + b,sa,sb))
+        self.feet.dir = 'right'
+        self.feet.shift = ss
+        
         # Damage and Healing text
         self.weapon = None
         self.damage_text = None
@@ -1133,9 +1149,13 @@ class Unit(pg.sprite.Sprite):
         else:
             moving = True
 
+        for obj in ALL_OBJECTS:
+            if obj.name == 'River':
+                if obj.rect.collidepoint(coords):
+                    return False, 'collision'
 
         if moving:
-
+            msg = ''
             displacement_x = int(coords[0]) - self.rect.centerx
             displacement_y = int(coords[1]) - self.rect.centery
             
@@ -1145,10 +1165,17 @@ class Unit(pg.sprite.Sprite):
                 self.MovingInfo['right/left'] = 'right'
                 self.MovingInfo['sprites'] = [1, self.movement_sprites[0]]
                 self.MovingInfo['h_dir'] = 1
+                if self.feet.dir == 'left':
+                    self.feet.rect.move_ip(-self.feet.shift,0)
+                    self.feet.dir = 'right'
+
             else:
                 self.MovingInfo['right/left'] = 'left'
                 self.MovingInfo['sprites'] = [self.movement_sprites[0] + 1, sum(self.movement_sprites)]
                 self.MovingInfo['h_dir'] = -1
+                if self.feet.dir == 'right':
+                    self.feet.rect.move_ip(self.feet.shift,0)
+                    self.feet.dir = 'left'
 
 
             if displacement_y > 0:
@@ -1161,7 +1188,7 @@ class Unit(pg.sprite.Sprite):
             self.animation_ind = 0
             self.resource -= self.resource_drain
 
-            return moving , ''
+            return moving , msg
 
     def Attack(self,coords,target_unit):
         if 'Ranged' in self.attacks_types:
@@ -1550,15 +1577,33 @@ class Unit(pg.sprite.Sprite):
         if mode == 'Move':
             initial_frame = self.MovingInfo['sprites'][0]
             last_frame = self.MovingInfo['sprites'][1]
+            collide = False
 
-            if abs(self.pos[0] - self.MovingInfo['coords'][0])>2:
+            if abs(self.pos[0] - self.MovingInfo['coords'][0])>2 and (self.MovingInfo['h_dir']!=0):
                 self.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
+                self.feet.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
                 self.pos[0] += self.speed*self.MovingInfo['h_dir']
+                if self.animation_ind >25:
+                    for obj in ALL_OBJECTS:
+                        if obj.name == 'River':
+                            if pg.sprite.collide_rect(self.feet,obj):
+                                self.MovingInfo['h_dir'] = 0
+                                collide = True
+                                break
             else:
                 self.MovingInfo['h_dir'] = 0
-            if abs(self.pos[1] - self.MovingInfo['coords'][1])>2:
+
+            if abs(self.pos[1] - self.MovingInfo['coords'][1])>2 and (self.MovingInfo['v_dir']!=0):
                 self.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
+                self.feet.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
                 self.pos[1] += self.speed*self.MovingInfo['v_dir']
+                if self.animation_ind >25:
+                    for obj in ALL_OBJECTS:
+                        if obj.name == 'River':
+                            if pg.sprite.collide_rect(self.feet,obj):
+                                self.MovingInfo['v_dir'] = 0
+                                collide = True
+                                break
             else:
                 self.MovingInfo['v_dir'] = 0
             
@@ -1575,6 +1620,19 @@ class Unit(pg.sprite.Sprite):
                 self.animation_ind = 0
                 self.ChangeSprite()
                 
+                # move away from the collided object if any
+                n = 0
+                while collide and n<2:
+                    self.rect.move_ip(-self.speed*10,0)
+                    self.pos[0] -= self.speed*10
+                    self.feet.rect.move_ip(-self.speed*10,0)
+                    n += 1
+                    for obj in ALL_OBJECTS:
+                        if obj.name == 'River':
+                            if not pg.sprite.collide_rect(self.feet,obj):
+                                collide = False
+                                break
+
                 # Keep player on the SCREEN
                 if self.rect.left < 0:
                     self.rect.left = 0
@@ -1750,8 +1808,12 @@ class Bar(pg.sprite.Sprite):
         if self.mode == 'info':
             self.RC_tup = [2,3]
             self.scale_factor = 0.7
-            self.x_offset = 60
-            self.y_offset = 2
+            if 'offsets' in vars(unit):
+                self.x_offset = unit.offsets['bar'][0]
+                self.y_offset = unit.offsets['bar'][1]
+            else:
+                self.x_offset = 60
+                self.y_offset = 2
             self.number_images = 6
             if type(unit).__name__ == 'Unit':
                 image_name = 'info01_ss.png'
@@ -1772,8 +1834,12 @@ class Bar(pg.sprite.Sprite):
 
         elif self.mode == 'bar':
             self.scale_factor = 0.7
-            self.x_offset = 60
-            self.y_offset = 2
+            if 'offsets' in vars(unit):
+                self.x_offset = unit.offsets['bar'][0]
+                self.y_offset = unit.offsets['bar'][1]
+            else:
+                self.x_offset = 60
+                self.y_offset = 2
             image_name = 'info03.png'
             self.surf = pg.image.load(self.path + image_name ).convert_alpha()
 
@@ -1812,20 +1878,21 @@ class Bar(pg.sprite.Sprite):
                 hp_text, _ = GAME_FONT.render(str(unit.hp) + '/' + str(unit.full_hp), (0, 0, 0) , size=12)
                 hp_sprite = pg.sprite.Sprite()
                 hp_sprite.surf = hp_text
-                hp_sprite.rect = (unit.rect.x + 110, unit.rect.y+17)
+                hp_sprite.rect = (self.rect.x + self.size[0]*0.38, self.rect.y+ self.size[1]*0.23)
                 self.TextGroup.add(hp_sprite)
                 # Name info
                 name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=16)
                 size_unit = unit.size
                 name_sprite = pg.sprite.Sprite()
                 name_sprite.surf = name_text
-                name_sprite.rect = (unit.rect.x - size_unit[0]*0.35,unit.rect.y - size_unit[1]*0.28)
+                name_offsets = unit.offsets['name']
+                name_sprite.rect = (unit.rect.x + name_offsets[0],unit.rect.y + name_offsets[1])
                 self.TextGroup.add(name_sprite)
                 # Resource Info
                 resource_text, _ = GAME_FONT.render(unit.resource_name, (0, 0, 0) , size=12)
                 resource_name_sprite = pg.sprite.Sprite()
                 resource_name_sprite.surf = resource_text
-                resource_name_sprite.rect = (unit.rect.x + 79, unit.rect.y + 36)
+                resource_name_sprite.rect = (self.rect.x + self.size[0]*0.25, self.rect.y+ self.size[1]*0.5)
                 self.TextGroup.add(resource_name_sprite)
             elif type(unit).__name__ == 'Object':
                 name_text, _ = GAME_FONT.render(unit.name, (0, 0, 0) , size=12)
@@ -1857,9 +1924,14 @@ class Bar(pg.sprite.Sprite):
             size_unit = unit.size
             name_sprite = pg.sprite.Sprite()
             name_sprite.surf = name_text
-            name_sprite.rect = (unit.rect.x - size_unit[0]*0.35,unit.rect.y - size_unit[1]*0.28)
+            if 'offsets' in vars(unit):
+                name_offsets = unit.offsets['name']
+
             if unit.name == 'House':
                 name_sprite.rect = (unit.rect.bottomleft[0]+ size_unit[0]*0.15,unit.rect.midbottom[1])
+            else:
+                name_sprite.rect = (unit.rect.x + name_offsets[0],unit.rect.y + name_offsets[1])
+
 
             self.TextGroup.add(name_sprite)
 
@@ -2389,8 +2461,9 @@ pg.display.set_caption('strawberry bf')
 Pixel2Mts = 1.7/70
 Players_list = []
 
-#pg.mixer.music.load(main_dir + '/data/music/Death_Bed.ogg')
-#pg.mixer.music.play(-1)
+#pg.mixer.music.load(main_dir + '/data/music/littleroot.ogg')
+pg.mixer.music.load(main_dir + '/data/music/shield.ogg')
+pg.mixer.music.play(-1)
 
 
 def main():
@@ -2421,7 +2494,7 @@ def main():
     Player_A.UnitsGroup.add(Unit('Archer',[300,700], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Villager',[400,500], Player_A.name))
     Player_A.UnitsGroup.add(Unit('Knight',[230,700], Player_A.name))
-    Player_A.UnitsGroup.add(Unit('Wizard',[450,250], Player_A.name))
+    Player_A.UnitsGroup.add(Unit('Wizard',[730,200], Player_A.name))
     #Player_A.UnitsGroup.add(Unit('Priest',[650,250], Player_A.name))
 
     Player_B.UnitsGroup.add(Unit('Villager',[1400,400], Player_B.name))

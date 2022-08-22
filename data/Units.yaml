@@ -13,6 +13,10 @@ Archer:
     RowColumn_tup: [6,6]
     movement_sprites: 9
     attack_sprites: 9
+    offsets:
+      name: [5,-15]
+      bar: [80,20]
+      feet: [-23,42,48,10,0]
 
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
@@ -51,6 +55,10 @@ Villager:
     RowColumn_tup: [8,5]
     movement_sprites: 9
     working_sprites: 8
+    offsets:
+      name: [-5,-12]
+      bar: [75,20]
+      feet: [-20,40,38,10,5]
 
   Parameters:
     actions: ['Move','Work','Gather','Eat','Attack','Talk']
@@ -81,6 +89,10 @@ Knight:
     RowColumn_tup: [6,6]
     movement_sprites: 9
     attack_sprites: 9
+    offsets:
+      name: [15,0]
+      bar: [85,25]
+      feet: [-20,46,48,12,-8]
     
 
   Parameters:
@@ -112,6 +124,10 @@ Wizard:
     RowColumn_tup: [8,6]
     movement_sprites: 9
     attack_sprites: 13
+    offsets:
+      name: [25,15]
+      bar: [110,50]
+      feet: [-35,60,45,10,26]
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
     full_hp: 80
@@ -141,6 +157,9 @@ Priest:
     RowColumn_tup: [1,1]
     movement_sprites: 0
     attack_sprites: 0
+    offsets:
+      name: [10,10]
+      bar: [100,50]
 
   Parameters:
     actions: ['Move','Attack','Eat','Talk']
