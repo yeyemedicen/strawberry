@@ -76,6 +76,36 @@ River:
     number_of_sprites: 8
     RowColumn_tup: [8,1]
     SpritesPerIter: 10
+  
+  Obstacles:
+    - [-15,-380,62,180]
+    - [-24,-200,70,55]
+    - [-24,-145,55,30]
+    - [-40,-115,83,100]
+    - [-40,-25,50,10]
+    - [-50,100,72,50]
+    - [-50,140,75,50]
+    - [-45,190,70,20]
+    - [-30,210,60,20]
+    - [-20,230,60,20]
+    - [-10,250,60,40]
+    - [-20,290,60,20]
+    - [-30,310,60,10]
+    - [-40,320,60,10]
+    - [-50,330,63,55]
+    
+    
+Bridge:
+  name: 'Bridge'
+  path: '/data/objects/Bridge/Bridge.png'
+  types: ['']
+  
+  Image:
+    scale_factor: 0.8
+    number_of_sprites: 1
+    RowColumn_tup: [1,1]
+    SpritesPerIter: 1
+
 
 House:
   name: 'House'

@@ -37,17 +37,22 @@ from pygame.locals import (
 )
 
 def General_Blit():
+
     for entity in ALL_OBJECTS:
-        #if entity.name == 'River':
-        #    pg.draw.rect(SCREEN,color=(250,102,102),rect=entity.rect)
+        #if entity.name == 'Bridge':
+        #    pg.draw.rect(SCREEN,color=(250,102,102),rect=entity.rect.inflate(-30,-60))
+
         SCREEN.blit(entity.surf, entity.rect)
         if 'FruitGroup' in vars(entity):
             for fruit_ in entity.FruitGroup:
                 SCREEN.blit(fruit_.surf, fruit_.rect)
+        
+        #if 'ObstacleGroup' in vars(entity):
+        #    for obt in entity.ObstacleGroup:
+        #        pg.draw.rect(SCREEN,color=(255,250,102),rect=obt.rect)
+
 
     for entity in ALL_SPRITES:
-        #if entity.name == 'Knight':
-        #    pg.draw.rect(SCREEN,color=(220,202,202),rect=entity.feet.rect)
         SCREEN.blit(entity.surf, entity.rect)
     
     for entity in ALL_OBJECTS:
@@ -1136,6 +1141,10 @@ class Unit(pg.sprite.Sprite):
 
         distance = ((coords[0] - self.rect.centerx)**2 + (coords[1] - self.rect.centery)**2)**(0.5)
         moving = False
+        objects_with_obs = []
+        for obj in ALL_OBJECTS:
+            if 'ObstacleGroup' in vars(obj):
+                objects_with_obs.append(obj)
 
         if forced:
             moving = True
@@ -1149,9 +1158,9 @@ class Unit(pg.sprite.Sprite):
         else:
             moving = True
 
-        for obj in ALL_OBJECTS:
-            if obj.name == 'River':
-                if obj.rect.collidepoint(coords):
+        for obj in objects_with_obs:
+            for elem in obj.ObstacleGroup:
+                if elem.rect.collidepoint(coords):
                     return False, 'collision'
 
         if moving:
@@ -1578,15 +1587,25 @@ class Unit(pg.sprite.Sprite):
             initial_frame = self.MovingInfo['sprites'][0]
             last_frame = self.MovingInfo['sprites'][1]
             collide = False
+            on_bridge = False
+            objects_with_obs = []
 
+            for obj in ALL_OBJECTS:
+                if 'ObstacleGroup' in vars(obj):
+                    objects_with_obs.append(obj)
+                if obj.name == 'Bridge':
+                    if pg.sprite.collide_rect(self.feet,obj.bridge_reduced):
+                        on_bridge = True
+            
+            
             if abs(self.pos[0] - self.MovingInfo['coords'][0])>2 and (self.MovingInfo['h_dir']!=0):
                 self.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
                 self.feet.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
                 self.pos[0] += self.speed*self.MovingInfo['h_dir']
-                if self.animation_ind >25:
-                    for obj in ALL_OBJECTS:
-                        if obj.name == 'River':
-                            if pg.sprite.collide_rect(self.feet,obj):
+                if self.animation_ind >25 and not on_bridge:
+                    for obj in objects_with_obs:
+                        for elem in obj.ObstacleGroup:
+                            if pg.sprite.collide_rect(self.feet,elem):
                                 self.MovingInfo['h_dir'] = 0
                                 collide = True
                                 break
@@ -1597,10 +1616,10 @@ class Unit(pg.sprite.Sprite):
                 self.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
                 self.feet.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
                 self.pos[1] += self.speed*self.MovingInfo['v_dir']
-                if self.animation_ind >25:
-                    for obj in ALL_OBJECTS:
-                        if obj.name == 'River':
-                            if pg.sprite.collide_rect(self.feet,obj):
+                if self.animation_ind >25 and not on_bridge:
+                    for obj in objects_with_obs:
+                        for elem in obj.ObstacleGroup:
+                            if pg.sprite.collide_rect(self.feet,elem):
                                 self.MovingInfo['v_dir'] = 0
                                 collide = True
                                 break
@@ -2094,6 +2113,10 @@ class Object(pg.sprite.Sprite):
             self.IsUpgrading = False
 
 
+        if self.name == 'Bridge':
+            self.bridge_reduced = pg.sprite.Sprite()
+            self.bridge_reduced.rect = self.rect.inflate((-30,-60))
+
         # Resources
         self.HasBar = None
         if 'Resources' in self.data:
@@ -2106,6 +2129,17 @@ class Object(pg.sprite.Sprite):
         if 'Fruit' in self.data:
             self.FruitGroup = pg.sprite.Group()
             self.fruit_capacity = self.data['Fruit']['capacity']
+
+        if 'Obstacles' in self.data:
+            self.ObstacleGroup = pg.sprite.Group()
+            for r_ in self.data['Obstacles']:
+                obstacle = pg.sprite.Sprite()
+                obstacle.rect = pg.Rect((\
+                    self.rect.centerx + r_[0], \
+                    self.rect.centery + r_[1], \
+                    r_[2], \
+                    r_[3]))
+                self.ObstacleGroup.add(obstacle)
 
         # video
         self.run_animation = False
@@ -2506,6 +2540,8 @@ def main():
     # Objects
     ALL_OBJECTS.add(Object('Sky',[900,0]))
     ALL_OBJECTS.add(Object('River',[830,520]))
+    ALL_OBJECTS.add(Object('Bridge',[820,565]))
+    
 
     ALL_OBJECTS.add(Object('Rock',[350,500]))
     ALL_OBJECTS.add(Object('Rock',[930,700]))
