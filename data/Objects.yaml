@@ -8,7 +8,7 @@ Tree:
   types: ['']
   
   Image:
-    scale_factor: 1.2
+    scale_factor: 1.5
     number_of_sprites: 50
     RowColumn_tup: [8,7]
     SpritesPerIter: 3
@@ -54,6 +54,9 @@ Rock:
     resource: 'rock' 
     full_resource: 80
     resource_drain: 4
+  
+  #Obstacles:
+  #  - [-15,0,32,22]
 
 Sky:
   name: 'sky'
@@ -94,7 +97,6 @@ River:
     - [-40,320,60,10]
     - [-50,330,63,55]
     
-    
 Bridge:
   name: 'Bridge'
   path: '/data/objects/Bridge/Bridge.png'
@@ -105,7 +107,6 @@ Bridge:
     number_of_sprites: 1
     RowColumn_tup: [1,1]
     SpritesPerIter: 1
-
 
 House:
   name: 'House'

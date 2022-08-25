@@ -51,10 +51,11 @@ Villager:
 
   Image:
     scale_factor: [0.3,0.34]
-    number_of_sprites: 34
-    RowColumn_tup: [8,5]
+    number_of_sprites: 50
+    RowColumn_tup: [8,7]
     movement_sprites: 9
     working_sprites: 8
+    gathering_sprites: 8
     offsets:
       name: [-5,-12]
       bar: [75,20]
@@ -144,7 +145,7 @@ Wizard:
         MagicBolt:
           damage: [12,18]
           range: 300
-          accuracy: 80
+          accuracy: 100 #80
 
 Priest:
   name: Priest

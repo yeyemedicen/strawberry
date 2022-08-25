@@ -48,8 +48,9 @@ def General_Blit():
                 SCREEN.blit(fruit_.surf, fruit_.rect)
         
         #if 'ObstacleGroup' in vars(entity):
-        #    for obt in entity.ObstacleGroup:
-        #        pg.draw.rect(SCREEN,color=(255,250,102),rect=obt.rect)
+        #    if entity.name == 'Rock':
+        #        for obt in entity.ObstacleGroup:
+        #            pg.draw.rect(SCREEN,color=(255,250,102),rect=obt.rect)
 
 
     for entity in ALL_SPRITES:
@@ -206,7 +207,7 @@ def DisplayResources(Players_list, color=None):
         elif Player_.name == 'Player B':
             SCREEN.blit(text, (SCREEN_WIDTH*0.76,SCREEN_HEIGHT*0.97))
 
-def DisplayDamage(coords,damage):
+def DisplayDamage(damage, coords = None):
     yoffset = -10
     xoffset = -10
 
@@ -220,7 +221,10 @@ def DisplayDamage(coords,damage):
 
     damage_sprite = pg.sprite.Sprite()
     damage_sprite.surf = damage_text
-    damage_sprite.rect = (coords[0]+xoffset,coords[1]+yoffset)
+    if coords:
+        damage_sprite.rect = (coords[0]+xoffset,coords[1]+yoffset)
+    else:
+        damage_sprite.rect = None
 
     return damage_sprite
 
@@ -844,7 +848,7 @@ def AttackingLoop(Player, unit, AttackingUnit, ActionBars, WaitingEnd, pressed_k
         AttackingUnit['target'] = []
 
     if AttackingUnit['target']:
-        
+
         if AttackingUnit['unit'] == unit:
             # prevent self-attack
             Logger.info(['Cannot attack myself!' , 1], holdtime=2)
@@ -985,7 +989,7 @@ class Unit(pg.sprite.Sprite):
         self.scale_factor = self.data['Image']['scale_factor']
 
         if 'gender' in self.data:
-            coin = random.randint(0,1)
+            coin = random.randint(1,2)
             if coin > 0:
                 self.type += 'M'
                 self.scale_factor = self.scale_factor[0]
@@ -998,6 +1002,8 @@ class Unit(pg.sprite.Sprite):
         
         if 'working_sprites' in self.data['Image']:
             self.working_sprites = [self.data['Image']['working_sprites'],self.data['Image']['working_sprites']]
+        if 'gathering_sprites' in self.data['Image']:
+            self.gathering_sprites = [self.data['Image']['gathering_sprites'],self.data['Image']['gathering_sprites']]
         if 'attack_sprites' in self.data['Image']:
             self.attack_sprites = [self.data['Image']['attack_sprites'],self.data['Image']['attack_sprites']]
         
@@ -1230,8 +1236,6 @@ class Unit(pg.sprite.Sprite):
             # Creating the arrow
             Projectile  = Weapon(projectile_name, self.pos, coords)
             IsShoted = True
-
-
             range_check = [ar > distance for ar in ranges]
             range_ind = range_check.index(True)   #Finding the first True
             damage = self.attacks[range_ind]['damage']
@@ -1265,7 +1269,6 @@ class Unit(pg.sprite.Sprite):
                     self.rect_ind = 0
                     self.ChangeSprite()
 
-
             # Attack Animation
             if d_x>=0:
                 animate_mode = 'Attack-Right'
@@ -1280,17 +1283,13 @@ class Unit(pg.sprite.Sprite):
 
             initial_rect_ind = self.rect_ind
 
-
             for frame in range(self.attack_sprites[0]):
                 self.rect_ind = initial_frame + frame
                 self.ChangeSprite()
-                
                 SCREEN.fill(SCREEN_COLOR)
                 pg.draw.line(SCREEN,color=(0,0,0),start_pos=(0,LINE_DOWN),end_pos=(SCREEN_WIDTH,LINE_DOWN),width=2)
                 Logger.info()
-
                 General_Blit()                
-
                 pg.display.flip()
                 clock.tick(Dt)
 
@@ -1318,20 +1317,20 @@ class Unit(pg.sprite.Sprite):
             if target_unit:
                 Projectile.TargetUnit = target_unit
 
-
             if not IsShoted:
                 return False, 'accuracy'
             else:
                 Projectile.msg = [damage_value,critical]
-                
-                self.damage_text = DisplayDamage(target_unit.rect.midtop,[damage_value,critical])
-                target_unit.hp -= damage_value
-                if target_unit.hp < 0:
-                    target_unit.Died()
+                if not target_unit:
+                    self.damage_text = DisplayDamage([damage_value,critical])
+                else:
+                    self.damage_text = DisplayDamage([damage_value,critical],target_unit.rect.midtop)
+                    target_unit.hp -= damage_value
+                    if target_unit.hp < 0:
+                        target_unit.Died()
 
-                if critical == 'critical':
-                    Logger.info(['Critical hit!', 1], holdtime = 2)
-                
+                    if critical == 'critical':
+                        Logger.info(['Critical hit!', 1], holdtime = 2)
                 
                 return True, [damage_value,critical]
 
@@ -1407,11 +1406,14 @@ class Unit(pg.sprite.Sprite):
             if not IsDone:
                 return False, 'accuracy'
             else:
-                self.damage_text = DisplayDamage(target_unit.rect.midtop,[damage_value,critical])
-                # inflicting damage into the target
-                target_unit.hp -= damage_value
-                if target_unit.hp < 0:
-                    target_unit.Died()
+                if not target_unit:
+                    self.damage_text = DisplayDamage([damage_value,critical])
+                else:
+                    self.damage_text = DisplayDamage([damage_value,critical],target_unit.rect.midtop,)
+                    # inflicting damage into the target
+                    target_unit.hp -= damage_value
+                    if target_unit.hp < 0:
+                        target_unit.Died()
 
                 return True, [damage_value,critical]
 
@@ -1488,10 +1490,10 @@ class Unit(pg.sprite.Sprite):
 
         if direction_right:
             coords = tuple(map(operator.add, gather_source.rect.bottomleft, gather_source.rect.midbottom))
-            self.work_mode = 'right'
+            self.work_direction = 'right'
         else:
             coords = tuple(map(operator.add, gather_source.rect.bottomright, gather_source.rect.midbottom))
-            self.work_mode = 'left'
+            self.work_direction = 'left'
         
 
         coords = [coords[0]*0.5,coords[1]*0.5]
@@ -1581,9 +1583,20 @@ class Unit(pg.sprite.Sprite):
                 initial_frame = sum(self.movement_sprites) + self.working_sprites[0]
                 last_frame = sum(self.movement_sprites) + sum(self.working_sprites)
             else:
-                raise Exception(self.work_mode,'not recognized')
+                raise Exception(self.self.work_direction,'not recognized')
 
-        if mode == 'Move':
+        elif mode == 'Gather':
+            if self.work_direction == 'right':
+                initial_frame = sum(self.movement_sprites) + sum(self.working_sprites)
+                last_frame = sum(self.movement_sprites) + sum(self.working_sprites) + self.gathering_sprites[0]
+            elif self.work_direction == 'left':
+                initial_frame = sum(self.movement_sprites) + sum(self.working_sprites) + self.gathering_sprites[0]
+                last_frame = sum(self.movement_sprites) + sum(self.working_sprites) + sum(self.gathering_sprites)
+            else:
+                raise Exception(self.self.work_direction,'not recognized')
+
+
+        elif mode == 'Move':
             initial_frame = self.MovingInfo['sprites'][0]
             last_frame = self.MovingInfo['sprites'][1]
             collide = False
@@ -1602,7 +1615,7 @@ class Unit(pg.sprite.Sprite):
                 self.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
                 self.feet.rect.move_ip(self.speed*self.MovingInfo['h_dir'],0)
                 self.pos[0] += self.speed*self.MovingInfo['h_dir']
-                if self.animation_ind >25 and not on_bridge:
+                if self.animation_ind >22 and not on_bridge:
                     for obj in objects_with_obs:
                         for elem in obj.ObstacleGroup:
                             if pg.sprite.collide_rect(self.feet,elem):
@@ -1616,7 +1629,7 @@ class Unit(pg.sprite.Sprite):
                 self.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
                 self.feet.rect.move_ip(0,self.speed*self.MovingInfo['v_dir'])
                 self.pos[1] += self.speed*self.MovingInfo['v_dir']
-                if self.animation_ind >25 and not on_bridge:
+                if self.animation_ind >22 and not on_bridge:
                     for obj in objects_with_obs:
                         for elem in obj.ObstacleGroup:
                             if pg.sprite.collide_rect(self.feet,elem):
@@ -2496,8 +2509,8 @@ Pixel2Mts = 1.7/70
 Players_list = []
 
 #pg.mixer.music.load(main_dir + '/data/music/littleroot.ogg')
-pg.mixer.music.load(main_dir + '/data/music/shield.ogg')
-pg.mixer.music.play(-1)
+#pg.mixer.music.load(main_dir + '/data/music/shield.ogg')
+#pg.mixer.music.play(-1)
 
 
 def main():
@@ -2544,9 +2557,12 @@ def main():
     
 
     ALL_OBJECTS.add(Object('Rock',[350,500]))
-    ALL_OBJECTS.add(Object('Rock',[930,700]))
-    ALL_OBJECTS.add(Object('Rock',[990,720]))
+    ALL_OBJECTS.add(Object('Rock',[930,720]))
+    ALL_OBJECTS.add(Object('Rock',[990,740]))
     ALL_OBJECTS.add(Object('Rock',[1250,172]))
+    ALL_OBJECTS.add(Object('Rock',[230,150]))
+    ALL_OBJECTS.add(Object('Rock',[200,170]))
+    
     ALL_OBJECTS.add(Object('Tree',[80,500]))
     ALL_OBJECTS.add(Object('Tree',[80,300]))
     ALL_OBJECTS.add(Object('Tree',[1500,150]))
@@ -2783,6 +2799,8 @@ def main():
                     sprite.animate(mode = 'Move')
                 elif sprite.IsWorking and not sprite.OnMoving:
                     sprite.animate(mode = 'Work')
+                elif sprite.IsGathering and not sprite.OnMoving:
+                    sprite.animate(mode = 'Gather')
 
         if any(UnitOnAction_lst):
             UnitOnAction = True
@@ -2885,7 +2903,8 @@ def main():
                                 if unit.weapon.name == 'MagicBolt':
                                     unit.weapon.kill()
                         else:
-                            SCREEN.blit(unit.damage_text.surf, unit.damage_text.rect)
+                            if unit.damage_text.rect:
+                                SCREEN.blit(unit.damage_text.surf, unit.damage_text.rect)
                 # showing healing
                 if unit.healing_text and not unit.IsEating:
                     unit.healing_duration += clock.get_time()
