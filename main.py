@@ -989,7 +989,7 @@ class Unit(pg.sprite.Sprite):
         self.scale_factor = self.data['Image']['scale_factor']
 
         if 'gender' in self.data:
-            coin = random.randint(1,2)
+            coin = random.randint(0,2)
             if coin > 0:
                 self.type += 'M'
                 self.scale_factor = self.scale_factor[0]
@@ -2509,8 +2509,8 @@ Pixel2Mts = 1.7/70
 Players_list = []
 
 #pg.mixer.music.load(main_dir + '/data/music/littleroot.ogg')
-#pg.mixer.music.load(main_dir + '/data/music/shield.ogg')
-#pg.mixer.music.play(-1)
+pg.mixer.music.load(main_dir + '/data/music/shield.ogg')
+pg.mixer.music.play(-1)
 
 
 def main():
